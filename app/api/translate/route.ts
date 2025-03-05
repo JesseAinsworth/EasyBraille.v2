@@ -1,46 +1,25 @@
 import { NextResponse } from "next/server"
 import dbConnect from "../../../lib/mongodb"
 import Translation from "../../../models/Translation"
-
-const brailleToSpanish: { [key: string]: string } = {
-  "⠁": "a",
-  "⠃": "b",
-  "⠉": "c",
-  "⠙": "d",
-  "⠑": "e",
-  "⠋": "f",
-  "⠛": "g",
-  "⠓": "h",
-  "⠊": "i",
-  "⠚": "j",
-  "⠅": "k",
-  "⠇": "l",
-  "⠍": "m",
-  "⠝": "n",
-  "⠕": "o",
-  "⠏": "p",
-  "⠟": "q",
-  "⠗": "r",
-  "⠎": "s",
-  "⠞": "t",
-  "⠥": "u",
-  "⠧": "v",
-  "⠺": "w",
-  "⠭": "x",
-  "⠽": "y",
-  "⠵": "z",
-  "⠀": " ",
-}
+import axios from "axios" // Import axios for API calls
 
 export async function POST(req: Request) {
   await dbConnect()
 
   const { braille, userId } = await req.json()
 
-  const spanish = braille
-    .split("")
-    .map((char: string) => brailleToSpanish[char] || char)
-    .join("")
+  // Call the AI translation service
+  const response = await axios.post('https://api.openai.com/v1/engines/davinci-codex/completions', {
+    prompt: `Translate the following Braille to Spanish: ${braille}`,
+    max_tokens: 60,
+    temperature: 0.5,
+    headers: {
+      'Authorization': `Bearer YOUR_API_KEY`, // Replace with your actual API key
+      'Content-Type': 'application/json'
+    }
+  });
+
+  const spanish = response.data.choices[0].text.trim(); // Get the translated text
 
   const translation = new Translation({ userId, braille, spanish })
   await translation.save()
@@ -62,4 +41,3 @@ export async function GET(req: Request) {
 
   return NextResponse.json(translations)
 }
-

@@ -6,9 +6,11 @@ import User from "../../../models/User"
 export async function POST(req: Request) {
   await dbConnect()
 
-  const { username, password } = await req.json()
+  const { identifier, password } = await req.json()
 
-  const user = await User.findOne({ username })
+  const user = await User.findOne({
+    $or: [{ username: identifier }, { email: identifier }],
+  })
 
   if (user && (await bcrypt.compare(password, user.password))) {
     // En una aplicación real, aquí generarías un token JWT

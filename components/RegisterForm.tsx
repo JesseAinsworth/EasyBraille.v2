@@ -6,25 +6,36 @@ import type React from "react"
 
 export default function RegisterForm() {
   const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    })
-    if (response.ok) {
-      router.push("/login")
-    } else {
-      alert("Error al registrar usuario")
+    setError("")
+
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password }),
+      })
+
+      if (response.ok) {
+        router.push("/login")
+      } else {
+        const data = await response.json()
+        setError(data.message || "Error al registrar usuario")
+      }
+    } catch (error) {
+      setError("Error al conectar con el servidor")
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <p className="text-red-500 text-sm">{error}</p>}
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
           Usuario
@@ -34,6 +45,19 @@ export default function RegisterForm() {
           id="username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+        />
+      </div>
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          Correo electrónico
+        </label>
+        <input
+          type="email"
+          id="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
         />

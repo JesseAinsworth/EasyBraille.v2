@@ -5,45 +5,35 @@ import { useRouter } from "next/navigation"
 import type React from "react"
 
 export default function LoginForm() {
-  const [username, setUsername] = useState("")
+  const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-
-    try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      })
-
-      if (response.ok) {
-        router.push("/translator")
-      } else {
-        const data = await response.json()
-        setError(data.message || "Error al iniciar sesión")
-      }
-    } catch (error) {
-      setError("Error al conectar con el servidor")
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier, password }),
+    })
+    if (response.ok) {
+      router.push("/translator")
+    } else {
+      alert("Error al iniciar sesión")
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <p className="text-red-500 text-sm">{error}</p>}
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-          Usuario
+        <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+          Usuario o Correo electrónico
         </label>
         <input
           type="text"
-          id="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          id="identifier"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
         />
