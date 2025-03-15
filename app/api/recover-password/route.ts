@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server"
-import dbConnect from "../../../lib/mongodb"
-import User from "../../../models/User"
+import dbConnect from "@/lib/mongodb"
+import User from "@/models/User"
 import nodemailer from "nodemailer"
 import crypto from "crypto"
-
-// Configuración del transporter de Nodemailer
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-})
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +11,7 @@ export async function POST(req: Request) {
 
     const user = await User.findOne({ email })
     if (!user) {
-      return NextResponse.json({ error: "No se encontró un usuario con ese correo electrónico" }, { status: 404 })
+      return NextResponse.json({ message: "No se encontró un usuario con ese correo electrónico" }, { status: 404 })
     }
 
     // Generar token de restablecimiento
@@ -31,6 +22,15 @@ export async function POST(req: Request) {
     user.resetPasswordToken = resetToken
     user.resetPasswordExpires = resetTokenExpiration
     await user.save()
+
+    // Configurar el transporter de nodemailer
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    })
 
     // URL para restablecer la contraseña
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`
@@ -51,9 +51,15 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({ message: "Se ha enviado un correo de recuperación" })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al recuperar la contraseña:", error)
-    return NextResponse.json({ error: "Error al enviar el correo de recuperación" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Error al enviar el correo de recuperación",
+        message: error.message || "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }
 

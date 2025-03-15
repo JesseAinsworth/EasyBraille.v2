@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import dbConnect from "../../../lib/mongodb"
-import User from "../../../models/User"
+import dbConnect from "@/lib/mongodb"
+import User from "@/models/User"
 
 export async function POST(req: Request) {
   try {
@@ -28,13 +28,26 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    const user = new User({ username, email, password: hashedPassword })
+    // Crear el usuario sin establecer profileImage inicialmente
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      // No establecemos profileImage aquí, usará los valores por defecto del esquema
+    })
+
     await user.save()
 
     return NextResponse.json({ message: "Usuario registrado exitosamente" })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al registrar usuario:", error)
-    return NextResponse.json({ message: "Error al registrar usuario" }, { status: 500 })
+    return NextResponse.json(
+      {
+        message: "Error al registrar usuario",
+        error: error.message || "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }
 

@@ -1,43 +1,100 @@
 import { NextResponse } from "next/server"
-import dbConnect from "../../../lib/mongodb"
-import Translation from "../../../models/Translation"
-import axios from "axios" // Import axios for API calls
+import { cookies } from "next/headers"
+import dbConnect from "@/lib/mongodb"
+import Translation from "@/models/Translation"
+
+const brailleToSpanish: { [key: string]: string } = {
+  "⠁": "a",
+  "⠃": "b",
+  "⠉": "c",
+  "⠙": "d",
+  "⠑": "e",
+  "⠋": "f",
+  "⠛": "g",
+  "⠓": "h",
+  "⠊": "i",
+  "⠚": "j",
+  "⠅": "k",
+  "⠇": "l",
+  "⠍": "m",
+  "⠝": "n",
+  "⠕": "o",
+  "⠏": "p",
+  "⠟": "q",
+  "⠗": "r",
+  "⠎": "s",
+  "⠞": "t",
+  "⠥": "u",
+  "⠧": "v",
+  "⠺": "w",
+  "⠭": "x",
+  "⠽": "y",
+  "⠵": "z",
+  "⠀": " ",
+}
 
 export async function POST(req: Request) {
-  await dbConnect()
+  try {
+    await dbConnect()
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get("session")
 
-  const { braille, userId } = await req.json()
-
-  // Call the AI translation service
-  const response = await axios.post('https://api.openai.com/v1/engines/davinci-codex/completions', {
-    prompt: `Translate the following Braille to Spanish: ${braille}`,
-    max_tokens: 60,
-    temperature: 0.5,
-    headers: {
-      'Authorization': `Bearer YOUR_API_KEY`, // Replace with your actual API key
-      'Content-Type': 'application/json'
+    if (!sessionCookie) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
-  });
 
-  const spanish = response.data.choices[0].text.trim(); // Get the translated text
+    const userId = sessionCookie.value
+    const { braille } = await req.json()
 
-  const translation = new Translation({ userId, braille, spanish })
-  await translation.save()
+    const spanish = braille
+      .split("")
+      .map((char: string) => brailleToSpanish[char] || char)
+      .join("")
 
-  return NextResponse.json({ spanish })
+    const translation = new Translation({
+      userId,
+      originalText: braille,
+      translatedText: spanish,
+    })
+    await translation.save()
+
+    return NextResponse.json({ spanish })
+  } catch (error: any) {
+    console.error("Error al traducir:", error)
+    return NextResponse.json(
+      {
+        error: "Error al traducir",
+        message: error.message || "Error desconocido",
+      },
+      { status: 500 },
+    )
+  }
 }
 
 export async function GET(req: Request) {
-  await dbConnect()
+  try {
+    await dbConnect()
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get("session")
 
-  const url = new URL(req.url)
-  const userId = url.searchParams.get("userId")
+    if (!sessionCookie) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
 
-  if (!userId) {
-    return NextResponse.json({ error: "UserId is required" }, { status: 400 })
+    const userId = sessionCookie.value
+
+    const translations = await Translation.find({ userId }).sort({ createdAt: -1 }).limit(10)
+
+    return NextResponse.json(translations)
+  } catch (error: any) {
+    console.error("Error al obtener traducciones:", error)
+    return NextResponse.json(
+      {
+        error: "Error al obtener traducciones",
+        message: error.message || "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
-
-  const translations = await Translation.find({ userId }).sort({ createdAt: -1 }).limit(10)
-
-  return NextResponse.json(translations)
 }
+

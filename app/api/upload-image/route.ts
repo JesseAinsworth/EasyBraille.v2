@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import dbConnect from "../../../lib/mongodb"
-import User from "../../../models/User"
+import dbConnect from "@/lib/mongodb"
+import User from "@/models/User"
 
 export async function POST(req: Request) {
   try {
@@ -16,22 +16,38 @@ export async function POST(req: Request) {
     const userId = sessionCookie.value // Asumiendo que el valor de la cookie es el userId
 
     const formData = await req.formData()
-    const image = formData.get("image") as File
+    const file = formData.get("image") as File
 
-    if (!image) {
-      return NextResponse.json({ error: "No se proporcionó ninguna imagen" }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ message: "No se proporcionó ninguna imagen" }, { status: 400 })
     }
 
-    // Aquí deberías implementar la lógica para subir la imagen a un servicio de almacenamiento
-    // y obtener la URL de la imagen subida. Por ahora, usaremos una URL de ejemplo.
-    const imageUrl = `/uploads/${image.name}`
+    // Convertir el archivo a un buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const contentType = file.type
 
-    await User.findByIdAndUpdate(userId, { profileImage: imageUrl })
+    // Actualizar el perfil del usuario con la imagen en la base de datos
+    await User.findByIdAndUpdate(userId, {
+      profileImage: {
+        data: buffer,
+        contentType: contentType,
+      },
+    })
 
-    return NextResponse.json({ imageUrl })
-  } catch (error) {
+    // Crear una URL de datos para devolver al cliente
+    const base64Image = buffer.toString("base64")
+    const imageUrl = `data:${contentType};base64,${base64Image}`
+
+    return NextResponse.json({ message: "Imagen subida exitosamente", imageUrl })
+  } catch (error: any) {
     console.error("Error al subir la imagen:", error)
-    return NextResponse.json({ error: "Error al subir la imagen" }, { status: 500 })
+    return NextResponse.json(
+      {
+        message: "Error al subir la imagen",
+        error: error.message || "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }
 

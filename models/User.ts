@@ -4,7 +4,10 @@ const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  profileImage: { type: String, default: "/placeholder.svg?height=200&width=200" },
+  profileImage: {
+    data: { type: Buffer, default: undefined },
+    contentType: { type: String, default: undefined },
+  },
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   createdAt: { type: Date, default: Date.now },

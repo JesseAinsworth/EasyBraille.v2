@@ -15,8 +15,8 @@ export default function UserNav() {
   const router = useRouter()
   const pathname = usePathname()
 
-  // Solo mostrar el menú en la página del traductor y en la página de historial
-  if (pathname !== "/translator" && pathname !== "/history") {
+  // Solo mostrar el menú en la página del traductor, historial y configuración
+  if (pathname !== "/translator" && pathname !== "/history" && pathname !== "/settings") {
     return null
   }
 
@@ -35,7 +35,7 @@ export default function UserNav() {
       } else {
         console.error("Error al cerrar sesión")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al cerrar sesión:", error)
     }
   }
