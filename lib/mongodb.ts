@@ -26,8 +26,26 @@ async function dbConnect() {
       return mongoose
     })
   }
-  cached.conn = await cached.promise
-  return cached.conn
+
+  try {
+    cached.conn = await cached.promise
+
+    // Verificar que la conexión tenga una base de datos
+    if (!mongoose.connection.db) {
+      console.warn("La conexión a la base de datos no está completamente establecida")
+      // Esperar un poco más para asegurar que la conexión esté lista
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      if (!mongoose.connection.db) {
+        throw new Error("No se pudo establecer conexión con la base de datos")
+      }
+    }
+
+    return cached.conn
+  } catch (error) {
+    cached.promise = null
+    throw error
+  }
 }
 
 export default dbConnect

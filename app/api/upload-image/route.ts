@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import dbConnect from "@/lib/mongodb"
 import User from "@/models/User"
+import mongoose from "mongoose"
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const userId = sessionCookie.value // Asumiendo que el valor de la cookie es el userId
+    const userId = sessionCookie.value
 
     const formData = await req.formData()
     const file = formData.get("image") as File
@@ -26,19 +27,63 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const contentType = file.type
 
-    // Actualizar el perfil del usuario con la imagen en la base de datos
-    await User.findByIdAndUpdate(userId, {
-      profileImage: {
+    try {
+      // Enfoque 1: Usar directamente el modelo de mongoose para encontrar y actualizar
+      const user = await User.findById(userId)
+
+      if (!user) {
+        return NextResponse.json({ message: "Usuario no encontrado" }, { status: 404 })
+      }
+
+      // Actualizar manualmente los campos
+      user.profileImage = {
         data: buffer,
         contentType: contentType,
-      },
-    })
+      }
 
-    // Crear una URL de datos para devolver al cliente
-    const base64Image = buffer.toString("base64")
-    const imageUrl = `data:${contentType};base64,${base64Image}`
+      // Guardar sin validación
+      await user.save({ validateBeforeSave: false })
 
-    return NextResponse.json({ message: "Imagen subida exitosamente", imageUrl })
+      // Crear una URL de datos para devolver al cliente
+      const base64Image = buffer.toString("base64")
+      const imageUrl = `data:${contentType};base64,${base64Image}`
+
+      return NextResponse.json({ message: "Imagen subida exitosamente", imageUrl })
+    } catch (updateError) {
+      console.error("Error específico al actualizar usuario:", updateError)
+
+      // Enfoque 2: Usar directamente la colección de MongoDB
+      try {
+        // Verificar que la conexión y db existan
+        if (!mongoose.connection || !mongoose.connection.db) {
+          throw new Error("No se pudo establecer conexión con la base de datos")
+        }
+
+        const db = mongoose.connection.db
+        const result = await db.collection("users").updateOne(
+          { _id: new mongoose.Types.ObjectId(userId) },
+          {
+            $set: {
+              "profileImage.data": buffer,
+              "profileImage.contentType": contentType,
+            },
+          },
+        )
+
+        if (result.matchedCount === 0) {
+          return NextResponse.json({ message: "Usuario no encontrado" }, { status: 404 })
+        }
+
+        // Crear una URL de datos para devolver al cliente
+        const base64Image = buffer.toString("base64")
+        const imageUrl = `data:${contentType};base64,${base64Image}`
+
+        return NextResponse.json({ message: "Imagen subida exitosamente (método alternativo)", imageUrl })
+      } catch (directDbError) {
+        console.error("Error al usar método alternativo:", directDbError)
+        throw directDbError // Re-lanzar para el manejador de errores principal
+      }
+    }
   } catch (error: any) {
     console.error("Error al subir la imagen:", error)
     return NextResponse.json(
