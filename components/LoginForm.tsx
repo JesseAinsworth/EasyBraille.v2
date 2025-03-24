@@ -10,7 +10,6 @@ export default function LoginForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,12 +50,12 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {error && <div className="p-3 bg-red-100 text-red-700 rounded-md">{error}</div>}
 
       <div>
-        <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
-          Correo electrónico
+        <label htmlFor="identifier" className="sr-only">
+          USUARIO
         </label>
         <input
           type="text"
@@ -64,13 +63,13 @@ export default function LoginForm() {
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           required
-          placeholder="Ingresa tu correo electrónico"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+          placeholder="USUARIO"
+          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-          Contraseña
+        <label htmlFor="password" className="sr-only">
+          CONTRASEÑA
         </label>
         <input
           type="password"
@@ -78,38 +77,23 @@ export default function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          placeholder="Ingresa tu contraseña"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+          placeholder="CONTRASEÑA"
+          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
         />
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <input
-            id="remember-me"
-            name="remember-me"
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
-            className="h-4 w-4 text-skyblue focus:ring-skyblue border-gray-300 rounded"
-          />
-          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-            Recuérdame
-          </label>
-        </div>
-        <div className="text-sm">
-          <Link href="/reset-password" className="font-medium text-skyblue hover:text-blue-500">
-            ¿Olvidaste tu contraseña?
-          </Link>
-        </div>
+      <div className="flex justify-end">
+        <Link href="/reset-password" className="text-sm text-black/80 hover:text-black">
+          ¿Olvidaste tu contraseña?
+        </Link>
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-skyblue hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-skyblue transition-colors disabled:opacity-50"
+        className="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-skyblue bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 transition-colors disabled:opacity-50 font-medium"
       >
-        {loading ? "Procesando..." : "Iniciar sesión"}
+        {loading ? "Procesando..." : "INICIAR SESIÓN"}
       </button>
     </form>
   )

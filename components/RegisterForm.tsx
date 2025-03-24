@@ -10,7 +10,6 @@ export default function RegisterForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [agreeToTerms, setAgreeToTerms] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,11 +18,6 @@ export default function RegisterForm() {
     // Validación del lado del cliente
     if (!username.trim() || !email.trim() || !password.trim()) {
       setError("Por favor, completa todos los campos")
-      return
-    }
-
-    if (!agreeToTerms) {
-      setError("Debes aceptar los términos y condiciones")
       return
     }
 
@@ -54,12 +48,12 @@ export default function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <div className="p-3 bg-red-100 text-red-700 rounded-md">{error}</div>}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && <div className="p-3 bg-red-200 text-red-700 rounded-md">{error}</div>}
 
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-          Nombre completo
+        <label htmlFor="username" className="sr-only">
+          USUARIO
         </label>
         <input
           type="text"
@@ -67,13 +61,13 @@ export default function RegisterForm() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          placeholder="Ingresa tu nombre completo"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+          placeholder="USUARIO"
+          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
         />
       </div>
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-          Correo electrónico
+        <label htmlFor="email" className="sr-only">
+          CORREO ELECTRÓNICO
         </label>
         <input
           type="email"
@@ -81,13 +75,13 @@ export default function RegisterForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          placeholder="Ingresa tu correo electrónico"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+          placeholder="CORREO ELECTRÓNICO"
+          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-          Contraseña
+        <label htmlFor="password" className="sr-only">
+          CONTRASEÑA
         </label>
         <input
           type="password"
@@ -96,38 +90,17 @@ export default function RegisterForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          placeholder="Crea una contraseña"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+          placeholder="CONTRASEÑA"
+          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
         />
-      </div>
-
-      <div className="flex items-center">
-        <input
-          id="agree-terms"
-          name="agree-terms"
-          type="checkbox"
-          checked={agreeToTerms}
-          onChange={(e) => setAgreeToTerms(e.target.checked)}
-          className="h-4 w-4 text-skyblue focus:ring-skyblue border-gray-300 rounded"
-        />
-        <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-700">
-          Acepto los{" "}
-          <a href="#" className="text-skyblue hover:underline">
-            términos y condiciones
-          </a>{" "}
-          y la{" "}
-          <a href="#" className="text-skyblue hover:underline">
-            política de privacidad
-          </a>
-        </label>
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-skyblue hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-skyblue transition-colors disabled:opacity-50"
+        className="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-skyblue bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 transition-colors disabled:opacity-50 font-medium"
       >
-        {loading ? "Procesando..." : "Registrarse"}
+        {loading ? "Procesando..." : "REGISTRARSE"}
       </button>
     </form>
   )
