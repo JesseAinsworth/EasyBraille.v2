@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { createOrUpdateEcoKeyboard, getEcoKeyboardByUserId } from "@/lib/db-utils"
+import { createAIInteraction, getAIInteractionsByUserId } from "@/lib/db-utils"
 
 export async function POST(req: Request) {
   try {
@@ -12,23 +12,25 @@ export async function POST(req: Request) {
     }
 
     const userId = sessionCookie.value
-    const { configuration, action } = await req.json()
+    const { inputText, expectedOutput, manualCorrection, accuracy } = await req.json()
 
-    const ecoKeyboard = await createOrUpdateEcoKeyboard({
+    const interaction = await createAIInteraction({
       userId,
-      configuration,
-      action,
+      inputText,
+      expectedOutput,
+      manualCorrection,
+      accuracy,
     })
 
     return NextResponse.json({
-      message: "Configuración de teclado ecológico guardada exitosamente",
-      ecoKeyboard,
+      message: "Feedback guardado exitosamente",
+      interaction,
     })
   } catch (error: any) {
-    console.error("Error al guardar configuración de teclado ecológico:", error)
+    console.error("Error al guardar feedback de IA:", error)
     return NextResponse.json(
       {
-        error: "Error al guardar configuración de teclado ecológico",
+        error: "Error al guardar feedback de IA",
         message: error.message || "Error desconocido",
       },
       { status: 500 },
@@ -46,27 +48,14 @@ export async function GET(req: Request) {
     }
 
     const userId = sessionCookie.value
-    const ecoKeyboard = await getEcoKeyboardByUserId(userId)
+    const interactions = await getAIInteractionsByUserId(userId)
 
-    if (!ecoKeyboard) {
-      // Si no existe, devolver una configuración por defecto
-      return NextResponse.json({
-        configuration: {
-          layout: "standard",
-          theme: "light",
-          sensitivity: 5,
-          customKeys: {},
-        },
-        history: [],
-      })
-    }
-
-    return NextResponse.json(ecoKeyboard)
+    return NextResponse.json(interactions)
   } catch (error: any) {
-    console.error("Error al obtener configuración de teclado ecológico:", error)
+    console.error("Error al obtener interacciones con IA:", error)
     return NextResponse.json(
       {
-        error: "Error al obtener configuración de teclado ecológico",
+        error: "Error al obtener interacciones con IA",
         message: error.message || "Error desconocido",
       },
       { status: 500 },

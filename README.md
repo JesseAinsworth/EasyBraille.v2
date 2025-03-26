@@ -34,3 +34,31 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+# Backend de Procesamiento de Imágenes para EasyBraille
+
+Este proyecto implementa un backend en Python para el procesamiento de imágenes y reconocimiento de texto Braille, utilizando OpenCV, YOLOv8 y Transformers.
+
+## Características
+
+- Procesamiento de imágenes con OpenCV para mejorar la calidad
+- Detección de puntos Braille usando YOLOv8
+- Traducción de texto Braille a español
+- API REST con Flask para integración con aplicaciones frontend
+
+## Requisitos
+
+- Python 3.9 o superior
+- Docker (opcional, para despliegue en contenedores)
+- GPU (opcional, para entrenamiento y procesamiento más rápido)
+
+## Instalación
+
+### Usando Python directamente
+
+1. Crea un entorno virtual:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # En Windows: venv\Scripts\activate
+

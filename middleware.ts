@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import mongoose from "mongoose"
 
 // Rutas que requieren autenticación
 const protectedRoutes = ["/translator", "/history", "/settings"]
@@ -10,6 +11,20 @@ export function middleware(request: NextRequest) {
 
   console.log("Middleware ejecutándose para:", pathname)
   console.log("Cookie de sesión:", sessionCookie ? "Presente" : "Ausente")
+
+  // Verificar si la cookie de sesión contiene un ObjectId válido
+  if (sessionCookie?.value) {
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(sessionCookie.value)
+    console.log("¿Es un ObjectId válido?:", isValidObjectId)
+
+    if (!isValidObjectId) {
+      console.log("La cookie de sesión no contiene un ObjectId válido")
+      // Limpiar la cookie inválida
+      const response = NextResponse.redirect(new URL("/login", request.url))
+      response.cookies.delete("session")
+      return response
+    }
+  }
 
   // Verificar si la ruta requiere autenticación
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
@@ -32,15 +47,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 }
 

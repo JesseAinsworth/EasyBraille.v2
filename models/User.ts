@@ -1,6 +1,5 @@
 import mongoose from "mongoose"
 
-// Definir el esquema sin validaciones estrictas
 const UserSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
