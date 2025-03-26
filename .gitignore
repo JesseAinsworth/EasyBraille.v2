@@ -39,8 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-
-venv_py310/Lib/site-packages/cv2/cv2.pyd
-venv_py310/Lib/site-packages/torch/lib/torch_cpu.dll
-venv_py310/Lib/site-packages/torch/lib/dnnl.lib

@@ -1,3 +1,6 @@
+import mongoose from "mongoose";
+
+
 // Declarar la extensión del tipo global para TypeScript
 declare global {
   // eslint-disable-next-line no-unused-vars
