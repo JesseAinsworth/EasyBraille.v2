@@ -8,11 +8,16 @@ export async function POST() {
 
     // Eliminar la cookie de sesión
     almacenCookies.delete("session")
+    // Eliminar la cookie de rol
+    almacenCookies.delete("userRole")
 
     return NextResponse.json({ mensaje: "Sesión cerrada exitosamente" })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error al cerrar sesión:", error)
-    return NextResponse.json({ error: "Error al cerrar sesión" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Error al cerrar sesión", message: error.message || "Error desconocido" },
+      { status: 500 },
+    )
   }
 }
 

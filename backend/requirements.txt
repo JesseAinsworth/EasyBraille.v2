@@ -1,0 +1,9 @@
+flask==2.0.1
+flask-cors==3.0.10
+opencv-python==4.8.1.78
+numpy==2.2.4
+Pillow==10.1.0
+python-dotenv==1.0.0
+# Nota: ultralytics y transformers pueden tener problemas de compatibilidad
+# con Python 3.13, considera usar versiones más recientes o alternativas
+

@@ -7,7 +7,7 @@ export async function POST(req: Request) {
   try {
     await dbConnect()
 
-    const { username, email, password } = await req.json()
+    const { username, email, password, role = "user" } = await req.json()
 
     // Validación básica
     if (!username || !email || !password) {
@@ -28,12 +28,12 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Crear el usuario sin establecer profileImage inicialmente
+    // Crear el usuario con el rol especificado (por defecto 'user')
     const user = new User({
       username,
       email,
       password: hashedPassword,
-      // No establecemos profileImage aquí, usará los valores por defecto del esquema
+      role: role === "admin" ? "admin" : "user", // Asegurar que solo se asignen roles válidos
     })
 
     await user.save()

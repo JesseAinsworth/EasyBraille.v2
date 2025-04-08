@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import type React from "react"
 import Link from "next/link"
 
@@ -11,6 +11,27 @@ export default function LoginForm() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Verificar si hay una cookie de sesión al cargar el componente
+  useEffect(() => {
+    // Limpiar cualquier error previo
+    setError("")
+
+    // Verificar si hay un parámetro de redirección
+    const redirectPath = searchParams.get("redirect")
+
+    // Opcional: Mostrar mensaje si fue redirigido
+    if (redirectPath) {
+      setError("Por favor inicia sesión para acceder a esa página")
+    }
+
+    // Verificar si hay un mensaje
+    const message = searchParams.get("message")
+    if (message) {
+      setError(message)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,7 +56,11 @@ export default function LoginForm() {
 
       if (response.ok) {
         console.log("Inicio de sesión exitoso, redirigiendo...")
-        router.push("/translator")
+
+        // Obtener la ruta de redirección si existe
+        const redirectPath = searchParams.get("redirect") || "/translator"
+
+        router.push(redirectPath)
         router.refresh() // Forzar actualización para reflejar el nuevo estado de autenticación
       } else {
         console.error("Error de inicio de sesión:", data)
@@ -64,7 +89,7 @@ export default function LoginForm() {
           onChange={(e) => setIdentifier(e.target.value)}
           required
           placeholder="USUARIO"
-          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
+          className="w-full px-4 py-3 bg-white/20 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/60 text-white placeholder-white/70"
         />
       </div>
       <div>
@@ -78,12 +103,12 @@ export default function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           placeholder="CONTRASEÑA"
-          className="w-full px-4 py-3 bg-white/60 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-skyblue text-black placeholder-black/70"
+          className="w-full px-4 py-3 bg-white/20 border border-white/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/60 text-white placeholder-white/70"
         />
       </div>
 
       <div className="flex justify-end">
-        <Link href="/reset-password" className="text-sm text-black/80 hover:text-black">
+        <Link href="/reset-password" className="text-sm text-white/80 hover:text-white">
           ¿Olvidaste tu contraseña?
         </Link>
       </div>

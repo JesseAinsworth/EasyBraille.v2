@@ -1,3 +1,5 @@
+"use client"
+
 import "./globals.css"
 import type React from "react"
 import Image from "next/image"
@@ -8,20 +10,11 @@ import { Inter } from "next/font/google"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// Componente wrapper para manejar la navegación con client component
-function NavbarWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <ClientNavbar />
-      {children}
-    </>
-  )
-}
 // Componente de cliente para acceder a usePathname
-;("use client")
 function ClientNavbar() {
   const pathname = usePathname()
-  const hideNavbar = pathname === "/login" || pathname === "/register"
+  const hideNavbar =
+    pathname === "/login" || pathname === "/register" || pathname === "/admin-login" || pathname === "/admin-register"
 
   if (hideNavbar) return null
 
@@ -52,7 +45,8 @@ export default function ClientLayout({
   return (
     <html lang="es">
       <body className={`${inter.className} bg-white`}>
-        <NavbarWrapper>{children}</NavbarWrapper>
+        <ClientNavbar />
+        {children}
       </body>
     </html>
   )

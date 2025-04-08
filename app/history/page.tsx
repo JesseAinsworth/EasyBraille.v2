@@ -1,41 +1,67 @@
 "use client"
 
-import { useCallback, memo } from "react"
+import { useState, useEffect } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Download } from "lucide-react"
 
-// Optimize data fetching with SWR
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
-// Memoize the translation item component
-const TranslationItem = memo(function TranslationItem({ translation }: { translation: any }) {
-  return (
-    <div key={translation._id} className="bg-white shadow rounded-lg p-4">
-      <p className="font-semibold text-skyblue">Braille: {translation.originalText}</p>
-      <p className="text-gray-600">Español: {translation.translatedText}</p>
-      <p className="text-sm text-gray-400 mt-2">{new Date(translation.createdAt).toLocaleString()}</p>
-    </div>
-  )
-})
-
 export default function HistoryPage() {
-  // Use SWR for data fetching with caching
-  const {
-    data: recentTranslations,
-    error,
-    isLoading,
-  } = useSWR("/api/translate", fetcher, {
-    revalidateOnFocus: false, // Don't revalidate when window gets focus
-    revalidateIfStale: false, // Don't revalidate if data is stale
-    dedupingInterval: 60000, // Dedupe requests within 1 minute
-  })
-
+  const { data: recentTranslations, error } = useSWR("/api/translate", fetcher)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleGoBack = useCallback(() => {
+  useEffect(() => {
+    // Aquí deberías obtener el userId del estado de autenticación
+    // Por ahora, usaremos un valor de ejemplo
+    setUserId("example-user-id")
+  }, [])
+
+  const handleGoBack = () => {
     router.push("/translator")
-  }, [router])
+  }
+
+  const downloadPDF = async (translationId: string) => {
+    setIsGeneratingPDF(translationId)
+    try {
+      const response = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ translationId }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al generar el PDF")
+      }
+
+      // Crear un blob a partir de la respuesta
+      const blob = await response.blob()
+
+      // Crear una URL para el blob
+      const url = window.URL.createObjectURL(blob)
+
+      // Crear un enlace temporal y hacer clic en él para descargar
+      const a = document.createElement("a")
+      a.style.display = "none"
+      a.href = url
+      a.download = "traduccion-braille.pdf"
+      document.body.appendChild(a)
+      a.click()
+
+      // Limpiar
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error("Error al descargar PDF:", error)
+      alert("Ocurrió un error al generar el PDF. Por favor, intenta de nuevo.")
+    } finally {
+      setIsGeneratingPDF(null)
+    }
+  }
 
   if (error)
     return (
@@ -51,7 +77,7 @@ export default function HistoryPage() {
       </div>
     )
 
-  if (isLoading)
+  if (!recentTranslations)
     return (
       <div className="container mx-auto px-4 py-8">
         <button
@@ -61,10 +87,7 @@ export default function HistoryPage() {
           <ArrowLeft className="mr-2 h-5 w-5" />
           <span>Volver al traductor</span>
         </button>
-        <div className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-skyblue"></div>
-          <span className="ml-2">Cargando historial...</span>
-        </div>
+        <div>Cargando...</div>
       </div>
     )
 
@@ -81,9 +104,25 @@ export default function HistoryPage() {
       <h1 className="text-3xl font-bold mb-6 text-skyblue">Historial de Traducciones</h1>
 
       <div className="space-y-4">
-        {recentTranslations && recentTranslations.length > 0 ? (
+        {recentTranslations.length > 0 ? (
           recentTranslations.map((translation: any) => (
-            <TranslationItem key={translation._id} translation={translation} />
+            <div key={translation._id} className="bg-white shadow rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-semibold text-skyblue">Braille: {translation.originalText}</p>
+                  <p className="text-gray-600">Español: {translation.translatedText}</p>
+                  <p className="text-sm text-gray-400 mt-2">{new Date(translation.createdAt).toLocaleString()}</p>
+                </div>
+                <button
+                  onClick={() => downloadPDF(translation._id)}
+                  disabled={isGeneratingPDF === translation._id}
+                  className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  <span>{isGeneratingPDF === translation._id ? "..." : "PDF"}</span>
+                </button>
+              </div>
+            </div>
           ))
         ) : (
           <div className="bg-gray-50 p-4 rounded-md text-center text-gray-500">No hay traducciones en el historial</div>

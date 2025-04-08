@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import dbConnect from "@/lib/mongodb"
 import Translation from "@/models/Translation"
-import mongoose from "mongoose"
+import { logDatabaseAction } from "@/lib/database-logger"
 
 const brailleToSpanish: { [key: string]: string } = {
   "⠁": "a",
@@ -47,50 +47,24 @@ export async function POST(req: Request) {
     const userId = sessionCookie.value
     const { braille } = await req.json()
 
-    // Añadir logs para depuración
-    console.log("Datos recibidos:", { userId, braille })
-
-    // Verificar que userId sea un ObjectId válido
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      console.error("userId no es un ObjectId válido:", userId)
-      return NextResponse.json({ error: "ID de usuario no válido" }, { status: 400 })
-    }
-
     const spanish = braille
       .split("")
       .map((char: string) => brailleToSpanish[char] || char)
       .join("")
 
-    // Crear el objeto de traducción con todos los campos requeridos
     const translation = new Translation({
       userId,
       originalText: braille,
       translatedText: spanish,
     })
 
-    // Log del objeto antes de guardar
-    console.log("Objeto a guardar:", translation)
+    await translation.save()
 
-    try {
-      await translation.save()
-    } catch (saveError: any) {
-      console.error("Error al guardar traducción:", saveError)
-      // Mostrar información detallada del error de validación
-      if (saveError.name === "ValidationError") {
-        const validationErrors = Object.keys(saveError.errors).map((field) => ({
-          field,
-          message: saveError.errors[field].message,
-        }))
-        return NextResponse.json(
-          {
-            error: "Error de validación",
-            validationErrors,
-          },
-          { status: 400 },
-        )
-      }
-      throw saveError
-    }
+    // Registrar la acción en el log
+    await logDatabaseAction("create", "translations", translation._id.toString(), {
+      originalText: braille,
+      translatedText: spanish,
+    })
 
     return NextResponse.json({ spanish })
   } catch (error: any) {

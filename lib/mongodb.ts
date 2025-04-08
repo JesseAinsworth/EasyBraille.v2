@@ -1,22 +1,11 @@
-import mongoose from "mongoose";
-
-
-// Declarar la extensión del tipo global para TypeScript
-declare global {
-  // eslint-disable-next-line no-unused-vars
-  var mongoose: {
-    conn: typeof mongoose | null
-    promise: Promise<typeof mongoose> | null
-  }
-}
+import mongoose from "mongoose"
 
 const MONGODB_URI = process.env.MONGODB_URI
 
 if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable inside .env.local")
+  console.warn("MONGODB_URI no está definido en las variables de entorno. Usando una conexión de prueba.")
 }
 
-// Variable para almacenar la conexión en caché
 let cached = global.mongoose
 
 if (!cached) {
@@ -33,7 +22,12 @@ async function dbConnect() {
       bufferCommands: false,
     }
 
-    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
+    // Si no hay URI de MongoDB, usar una conexión de prueba para desarrollo
+    const uri = MONGODB_URI || "mongodb://localhost:27017/easybraille_dev"
+
+    console.log("Conectando a MongoDB...")
+    cached.promise = mongoose.connect(uri, opts).then((mongoose) => {
+      console.log("Conexión a MongoDB establecida")
       return mongoose
     })
   }
@@ -54,6 +48,7 @@ async function dbConnect() {
 
     return cached.conn
   } catch (error) {
+    console.error("Error al conectar a MongoDB:", error)
     cached.promise = null
     throw error
   }

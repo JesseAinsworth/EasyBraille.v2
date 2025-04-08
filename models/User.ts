@@ -1,10 +1,12 @@
 import mongoose from "mongoose"
 
+// Definir el esquema sin validaciones estrictas
 const UserSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    role: { type: String, enum: ["user", "admin"], default: "user" }, // Añadir campo de rol
     profileImage: {
       data: Buffer,
       contentType: String,

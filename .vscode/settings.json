@@ -1,0 +1,5 @@
+{
+    "terminal.integrated.cursorStyle": "line",
+    "terminal.integrated.cursorStyleInactive": "line",
+    "terminal.integrated.defaultLocation": "view"
+}

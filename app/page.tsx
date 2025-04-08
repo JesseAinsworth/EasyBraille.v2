@@ -9,8 +9,8 @@ export default function Home() {
         <div className="flex flex-col md:flex-row">
           {/* Sección izquierda con información */}
           <div className="p-8 md:w-1/2 flex flex-col justify-center">
-            <h1 className="text-3xl font-bold text-black mb-4">Traductor de Braille a Español</h1>
-            <p className="text-black/80 mb-8">Traduciendo ideas de forma simple y accesible</p>
+            <h1 className="text-3xl font-bold text-white mb-4">Traductor de Braille a Español</h1>
+            <p className="text-white/80 mb-8">Traduciendo ideas de forma simple y accesible</p>
 
             <div className="space-y-4 mt-4">
               <Link
@@ -21,10 +21,20 @@ export default function Home() {
               </Link>
               <Link
                 href="/login"
-                className="block w-full text-center py-3 px-4 rounded-lg shadow-md text-black bg-white/20 border border-white hover:bg-white/30 transition-colors"
+                className="block w-full text-center py-3 px-4 rounded-lg shadow-md text-white bg-white/20 border border-white hover:bg-white/30 transition-colors"
               >
                 Iniciar sesión
               </Link>
+            </div>
+
+            {/* Enlaces para administradores */}
+            <div className="mt-8 pt-4 border-t border-white/20">
+              <p className="text-white/60 text-sm text-center mb-3">Acceso para administradores</p>
+              <div className="flex justify-center">
+                <Link href="/admin-login" className="text-white/70 text-sm hover:text-white transition-colors">
+                  Iniciar sesión como administrador
+                </Link>
+              </div>
             </div>
           </div>
 

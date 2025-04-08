@@ -29,7 +29,7 @@ export async function GET() {
       const base64Image = userObject.profileImage.data.toString("base64")
       userObject.profileImage = `data:${userObject.profileImage.contentType};base64,${base64Image}`
     } else {
-      userObject.profileImage = "/placeholder.svg?height=200&width=200"
+      userObject.profileImage = "https://via.placeholder.com/200"
     }
 
     return NextResponse.json(userObject)

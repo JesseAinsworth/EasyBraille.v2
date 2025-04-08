@@ -11,19 +11,27 @@ export default function Register() {
         <div className="flex flex-col md:flex-row">
           {/* Sección izquierda con formulario */}
           <div className="p-8 md:w-1/2 flex flex-col justify-center">
-            <Link href="/" className="inline-flex items-center text-black hover:text-gray-700 transition-colors mb-8">
+            <Link href="/" className="inline-flex items-center text-white hover:text-blue-100 transition-colors mb-8">
               <ArrowLeft className="h-5 w-5 mr-1" />
               <span>Volver</span>
             </Link>
 
-            <h1 className="text-3xl font-bold text-center mb-8 text-black">REGISTRO</h1>
+            <h1 className="text-3xl font-bold text-center mb-8 text-white">REGISTRO</h1>
 
             <RegisterForm />
 
             <div className="mt-6 text-center">
-              <p className="text-black/80 mb-2">¿Ya tienes una cuenta?</p>
-              <Link href="/login" className="text-black hover:text-gray-700 transition-colors">
+              <p className="text-white/80 mb-2">¿Ya tienes una cuenta?</p>
+              <Link href="/login" className="text-white hover:text-blue-100 transition-colors">
                 Iniciar sesión
+              </Link>
+            </div>
+
+            {/* Enlace para administradores */}
+            <div className="mt-8 pt-4 border-t border-white/20 text-center">
+              <p className="text-white/60 text-sm mb-2">¿Eres administrador?</p>
+              <Link href="/admin-login" className="text-white/70 text-sm hover:text-white transition-colors">
+                Acceso para administradores
               </Link>
             </div>
           </div>

@@ -7,7 +7,7 @@ import { Camera, Upload, X } from "lucide-react"
 import Image from "next/image"
 
 interface ImageCaptureProps {
-  onImageCaptured: (imageData: string | null) => void
+  onImageCaptured: (imageData: string | File | null) => void
 }
 
 export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
@@ -17,6 +17,7 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [capturedFile, setCapturedFile] = useState<File | null>(null)
 
   // Iniciar la cámara cuando se activa el modo cámara
   useEffect(() => {
@@ -69,7 +70,19 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
         // Convertir a base64
         const imageData = canvas.toDataURL("image/jpeg")
         setImageSrc(imageData)
-        onImageCaptured(imageData)
+
+        // Convertir a File para enviar al backend
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const file = new File([blob], "camera_capture.jpg", { type: "image/jpeg" })
+              setCapturedFile(file)
+              handleImageCaptured(file)
+            }
+          },
+          "image/jpeg",
+          0.8,
+        )
 
         // Detener la cámara
         const stream = video.srcObject as MediaStream
@@ -89,7 +102,8 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
       reader.onload = (event) => {
         const result = event.target?.result as string
         setImageSrc(result)
-        onImageCaptured(result)
+        setCapturedFile(file)
+        handleImageCaptured(file)
         setCaptureMode("none")
       }
       reader.readAsDataURL(file)
@@ -100,6 +114,7 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
   const resetCapture = () => {
     setImageSrc(null)
     setCaptureMode("none")
+    setCapturedFile(null)
     onImageCaptured(null)
 
     // Detener la cámara si está activa
@@ -111,22 +126,21 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
     }
   }
 
-  // Procesar la imagen (simulado por ahora)
-  const processImage = async () => {
-    if (!imageSrc) return
+  // Modificar la función handleImageCaptured para enviar el File directamente
+  const handleImageCaptured = async (imageData: string | File | null) => {
+    if (!imageData) return
 
+    console.log("ImageCapture: Imagen capturada, enviando al componente padre")
     setIsProcessing(true)
 
     try {
-      // Aquí enviaríamos la imagen al backend Python
-      // Por ahora, simulamos un retraso
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Pasar la imagen al componente padre
+      onImageCaptured(imageData)
 
-      // Simulamos éxito
-      alert("Imagen procesada correctamente. Los resultados se mostrarán en el traductor.")
+      // Simular un breve retraso para feedback visual
+      await new Promise((resolve) => setTimeout(resolve, 500))
     } catch (error) {
-      console.error("Error al procesar la imagen:", error)
-      alert("Error al procesar la imagen. Por favor, intenta de nuevo.")
+      console.error("ImageCapture: Error al procesar la imagen:", error)
     } finally {
       setIsProcessing(false)
     }
@@ -168,7 +182,7 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
           <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
             <button
               onClick={captureImage}
-              className="p-3 bg-skyblue text-white rounded-full shadow-lg hover:bg-blue-400 transition-colors"
+              className="p-3 bg-skyblue text-white rounded-full shadow-lg hover:bg-blue-400 transition-colors flex items-center justify-center"
             >
               <Camera className="h-6 w-6" />
             </button>
@@ -201,14 +215,6 @@ export default function ImageCapture({ onImageCaptured }: ImageCaptureProps) {
               <X className="h-4 w-4" />
             </button>
           </div>
-
-          <button
-            onClick={processImage}
-            disabled={isProcessing}
-            className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50"
-          >
-            {isProcessing ? "Procesando..." : "Procesar imagen"}
-          </button>
         </div>
       )}
     </div>

@@ -37,6 +37,11 @@ export async function POST(req: Request) {
     // Si llegamos aquí, las credenciales son válidas
     // Establecer la cookie de sesión con el ID del usuario
     const cookieStore = await cookies()
+
+    // Limpiar cualquier cookie de sesión existente primero
+    cookieStore.delete("session")
+
+    // Establecer la nueva cookie de sesión
     cookieStore.set("session", user._id.toString(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

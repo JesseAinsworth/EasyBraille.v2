@@ -2,23 +2,19 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import ImageCapture from "@/components/ImageCapture"
-import { Loader2 } from "lucide-react"
-import Image from "next/image"
+import { Download } from "lucide-react"
 
 export default function BrailleTranslator() {
   const [brailleInput, setBrailleInput] = useState("")
   const [spanishOutput, setSpanishOutput] = useState("")
   const [isTranslating, setIsTranslating] = useState(false)
-  const [showImageCapture, setShowImageCapture] = useState(false)
-  const [processedImage, setProcessedImage] = useState<string | null>(null)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const router = useRouter()
 
   const translateBraille = async () => {
     if (!brailleInput.trim()) return
 
     setIsTranslating(true)
-
     try {
       const response = await fetch("/api/translate", {
         method: "POST",
@@ -36,132 +32,83 @@ export default function BrailleTranslator() {
       setSpanishOutput(data.spanish)
     } catch (error) {
       console.error("Error al traducir:", error)
-      setSpanishOutput("Error al realizar la traducción. Por favor, intenta de nuevo.")
+      alert("Ocurrió un error al traducir. Por favor, intenta de nuevo.")
     } finally {
       setIsTranslating(false)
     }
   }
 
-  const handleImageCaptured = async (imageData: string | null) => {
-    if (!imageData) return
+  const downloadPDF = async () => {
+    if (!brailleInput.trim() || !spanishOutput.trim()) {
+      alert("Primero debes realizar una traducción")
+      return
+    }
 
-    setIsTranslating(true)
-    setProcessedImage(null)
-    setBrailleInput("")
-    setSpanishOutput("Procesando imagen...")
-
+    setIsGeneratingPDF(true)
     try {
-      // Convertir la imagen base64 a un archivo
-      const fetchResponse = await fetch(imageData)
-      const blob = await fetchResponse.blob()
-      const file = new File([blob], "captured_image.jpg", { type: "image/jpeg" })
-
-      // Crear FormData para enviar la imagen
-      const formData = new FormData()
-      formData.append("image", file)
-
-      // Enviar la imagen al backend para procesamiento
-      const response = await fetch("/api/translate-image", {
+      const response = await fetch("/api/generate-pdf", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          brailleText: brailleInput,
+          spanishText: spanishOutput,
+        }),
       })
 
       if (!response.ok) {
-        throw new Error("Error al procesar la imagen")
+        throw new Error("Error al generar el PDF")
       }
 
-      const data = await response.json()
+      // Crear un blob a partir de la respuesta
+      const blob = await response.blob()
 
-      // Actualizar la interfaz con los resultados
-      setBrailleInput(data.braille || "")
-      setSpanishOutput(data.spanish || "")
+      // Crear una URL para el blob
+      const url = window.URL.createObjectURL(blob)
 
-      // Mostrar la imagen procesada si está disponible
-      if (data.processedImage) {
-        setProcessedImage(`data:image/jpeg;base64,${data.processedImage}`)
-      }
+      // Crear un enlace temporal y hacer clic en él para descargar
+      const a = document.createElement("a")
+      a.style.display = "none"
+      a.href = url
+      a.download = "traduccion-braille.pdf"
+      document.body.appendChild(a)
+      a.click()
+
+      // Limpiar
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
     } catch (error) {
-      console.error("Error al procesar la imagen:", error)
-      setSpanishOutput("Error al procesar la imagen. Por favor, intenta de nuevo.")
+      console.error("Error al descargar PDF:", error)
+      alert("Ocurrió un error al generar el PDF. Por favor, intenta de nuevo.")
     } finally {
-      setIsTranslating(false)
+      setIsGeneratingPDF(false)
     }
   }
 
   return (
     <div className="w-full space-y-6">
-      {/* Botones para cambiar entre texto e imagen */}
-      <div className="flex space-x-2 mb-4">
-        <button
-          onClick={() => setShowImageCapture(false)}
-          className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-            !showImageCapture ? "bg-skyblue text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          Texto Braille
-        </button>
-        <button
-          onClick={() => setShowImageCapture(true)}
-          className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-            showImageCapture ? "bg-skyblue text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          }`}
-        >
-          Imagen
-        </button>
+      <div className="space-y-2">
+        <label htmlFor="braille-input" className="block text-sm font-medium text-gray-700">
+          Texto en Braille
+        </label>
+        <textarea
+          id="braille-input"
+          placeholder="Ingrese texto en Braille aquí..."
+          value={brailleInput}
+          onChange={(e) => setBrailleInput(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
+          rows={4}
+        />
       </div>
 
-      {/* Contenido basado en la selección */}
-      {!showImageCapture ? (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="braille-input" className="block text-sm font-medium text-gray-700">
-              Texto en Braille
-            </label>
-            <textarea
-              id="braille-input"
-              placeholder="Ingrese texto en Braille aquí..."
-              value={brailleInput}
-              onChange={(e) => setBrailleInput(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-skyblue focus:border-transparent"
-              rows={4}
-            />
-          </div>
-
-          <button
-            onClick={translateBraille}
-            disabled={isTranslating || !brailleInput.trim()}
-            className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white bg-skyblue hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-skyblue transition-colors disabled:opacity-50 flex items-center justify-center"
-          >
-            {isTranslating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Traduciendo...
-              </>
-            ) : (
-              "Traducir"
-            )}
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <ImageCapture onImageCaptured={handleImageCaptured} />
-
-          {/* Mostrar imagen procesada si está disponible */}
-          {processedImage && (
-            <div className="mt-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Imagen procesada:</p>
-              <Image
-                src={processedImage || "/placeholder.svg"}
-                alt="Imagen procesada"
-                width={500}
-                height={300}
-                className="w-full h-auto rounded-md border border-gray-300"
-                unoptimized
-              />
-            </div>
-          )}
-        </div>
-      )}
+      <button
+        onClick={translateBraille}
+        disabled={isTranslating || !brailleInput.trim()}
+        className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white bg-skyblue hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-skyblue transition-colors disabled:opacity-50"
+      >
+        {isTranslating ? "Traduciendo..." : "Traducir"}
+      </button>
 
       <div className="space-y-2">
         <label htmlFor="spanish-output" className="block text-sm font-medium text-gray-700">
@@ -177,12 +124,23 @@ export default function BrailleTranslator() {
         />
       </div>
 
-      <button
-        onClick={() => router.push("/history")}
-        className="w-full py-2 px-4 border border-skyblue rounded-md shadow-sm text-skyblue bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-skyblue transition-colors"
-      >
-        Ver Historial
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={() => router.push("/history")}
+          className="flex-1 py-2 px-4 border border-skyblue rounded-md shadow-sm text-skyblue bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-skyblue transition-colors"
+        >
+          Ver Historial
+        </button>
+
+        <button
+          onClick={downloadPDF}
+          disabled={isGeneratingPDF || !spanishOutput.trim()}
+          className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:opacity-50 flex items-center justify-center"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          {isGeneratingPDF ? "Generando..." : "Descargar PDF"}
+        </button>
+      </div>
     </div>
   )
 }
