@@ -8,8 +8,8 @@ import { Navbar } from "@/components/Navbar"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "EasyBraille - Traductor de Braille",
-  description: "Traductor de Braille a Español y viceversa",
+  title: "EasyBraille - Traductor Accesible de Braille",
+  description: "Traductor avanzado de Braille a Español y viceversa con reconocimiento de imágenes",
 }
 
 export default function RootLayout({

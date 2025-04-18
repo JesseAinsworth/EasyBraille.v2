@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { LogoSection } from "@/components/LogoSection"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -23,63 +24,48 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // In a real app, this would be an API call to authenticate
-      // For demo purposes, we'll simulate a successful login
-      setTimeout(() => {
-        // Check if it's the admin user
-        if (email === "admin@example.com" && password === "admin123") {
-          // Store user info in localStorage
-          localStorage.setItem(
-            "user",
-            JSON.stringify({
-              id: "1",
-              name: "Administrador",
-              email: "admin@example.com",
-              role: "admin",
-            }),
-          )
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
 
-          toast({
-            title: "Inicio de sesión exitoso",
-            description: "Bienvenido, Administrador",
-          })
+      const data = await response.json()
 
-          router.push("/admin")
-        } else if (email === "user@example.com" && password === "user123") {
-          // Store user info in localStorage
-          localStorage.setItem(
-            "user",
-            JSON.stringify({
-              id: "2",
-              name: "Usuario",
-              email: "user@example.com",
-              role: "user",
-            }),
-          )
+      if (!response.ok) {
+        throw new Error(data.error || "Error al iniciar sesión")
+      }
 
-          toast({
-            title: "Inicio de sesión exitoso",
-            description: "Bienvenido de nuevo",
-          })
+      // Guardar token en localStorage
+      localStorage.setItem("token", data.token)
 
-          router.push("/translator")
-        } else {
-          toast({
-            title: "Error de inicio de sesión",
-            description:
-              "Credenciales incorrectas. Para probar, usa admin@example.com/admin123 o user@example.com/user123",
-            variant: "destructive",
-          })
-        }
+      // Guardar información del usuario en localStorage
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: data.user._id,
+          name: data.user.name,
+          email: data.user.email,
+          role: data.user.role,
+          avatarUrl: data.user.avatarUrl,
+        }),
+      )
 
-        setIsLoading(false)
-      }, 1000)
-    } catch (error) {
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: data.user.role === "admin" ? "Bienvenido, Administrador" : "Bienvenido de nuevo",
+      })
+
+      router.push(data.user.role === "admin" ? "/admin" : "/translator")
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Ocurrió un error durante el inicio de sesión. Por favor, intenta de nuevo.",
+        description: error.message || "Ocurrió un error durante el inicio de sesión. Por favor, intenta de nuevo.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }
@@ -88,6 +74,9 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)] py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-4">
+            <LogoSection size="medium" showText={false} />
+          </div>
           <CardTitle className="text-2xl font-bold text-center">Iniciar Sesión</CardTitle>
           <CardDescription className="text-center">Ingresa tus credenciales para acceder a tu cuenta</CardDescription>
         </CardHeader>

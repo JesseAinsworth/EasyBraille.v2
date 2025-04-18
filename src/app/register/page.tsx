@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { LogoSection } from "@/components/LogoSection"
 
 export default function RegisterPage() {
   const [name, setName] = useState("")
@@ -35,34 +36,34 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      // In a real app, this would be an API call to register
-      // For demo purposes, we'll simulate a successful registration
-      setTimeout(() => {
-        // Store user info in localStorage
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            id: Date.now().toString(),
-            name,
-            email,
-            role: "user",
-          }),
-        )
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+      })
 
-        toast({
-          title: "Registro exitoso",
-          description: "Tu cuenta ha sido creada correctamente",
-        })
+      const data = await response.json()
 
-        router.push("/translator")
-        setIsLoading(false)
-      }, 1000)
-    } catch (error) {
+      if (!response.ok) {
+        throw new Error(data.error || "Error al registrar usuario")
+      }
+
+      toast({
+        title: "Registro exitoso",
+        description: "Tu cuenta ha sido creada correctamente",
+      })
+
+      // Redirigir a la página de inicio de sesión
+      router.push("/login")
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Ocurrió un error durante el registro. Por favor, intenta de nuevo.",
+        description: error.message || "Ocurrió un error durante el registro. Por favor, intenta de nuevo.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
     }
   }
@@ -71,6 +72,9 @@ export default function RegisterPage() {
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)] py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-4">
+            <LogoSection size="medium" showText={false} />
+          </div>
           <CardTitle className="text-2xl font-bold text-center">Crear cuenta</CardTitle>
           <CardDescription className="text-center">Ingresa tus datos para registrarte en la plataforma</CardDescription>
         </CardHeader>

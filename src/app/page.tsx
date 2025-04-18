@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, BlindsIcon as Braille, Globe, Users } from "lucide-react"
+import { LogoSection } from "@/components/LogoSection"
 
 export default function Home() {
   return (
@@ -8,6 +9,7 @@ export default function Home() {
       <section className="flex-1 py-12 md:py-24 lg:py-32 bg-gradient-to-b from-background to-muted">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center space-y-4 text-center">
+            <LogoSection size="large" showText={false} />
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl">
                 Traductor de Braille a Español y viceversa
@@ -41,9 +43,9 @@ export default function Home() {
                 <Braille className="h-10 w-10 text-primary" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-bold">Traducciones con IA y Teclado fisico de Braille</h3>
+                <h3 className="text-xl font-bold">Traducción Precisa</h3>
                 <p className="text-muted-foreground">
-                  Para traducciones de Braille a Español y Viceversa.
+                  Nuestro algoritmo avanzado garantiza traducciones precisas entre Braille y español.
                 </p>
               </div>
             </div>

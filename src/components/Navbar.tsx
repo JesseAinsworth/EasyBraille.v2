@@ -37,9 +37,12 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold">EasyBraille</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
+              <img src="/images/logo22.png" alt="EasyBraille Logo" className="h-8 w-auto rounded" />
+              <span className="text-xl font-bold">EasyBraille</span>
+            </Link>
+          </div>
         </div>
 
         {/* Desktop Navigation */}

@@ -7,17 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Trash2, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-
-interface TranslationRecord {
-  id: number
-  inputText: string
-  outputText: string
-  direction: "tobraille" | "frombraille"
-  timestamp: string
-}
+import type { Translation } from "@/models/Translation"
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState<TranslationRecord[]>([])
+  const [history, setHistory] = useState<Translation[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
@@ -31,13 +25,40 @@ export default function HistoryPage() {
     }
 
     setIsLoggedIn(true)
-
-    // Load translation history
-    const savedHistory = localStorage.getItem("translationHistory")
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory))
-    }
+    fetchTranslations()
   }, [router])
+
+  const fetchTranslations = async () => {
+    try {
+      const token = localStorage.getItem("token")
+
+      if (!token) {
+        router.push("/login")
+        return
+      }
+
+      const response = await fetch("/api/translations", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al obtener el historial")
+      }
+
+      const data = await response.json()
+      setHistory(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el historial de traducciones",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const handleCopyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -47,29 +68,83 @@ export default function HistoryPage() {
     })
   }
 
-  const handleDeleteRecord = (id: number) => {
-    const updatedHistory = history.filter((record) => record.id !== id)
-    setHistory(updatedHistory)
-    localStorage.setItem("translationHistory", JSON.stringify(updatedHistory))
+  const handleDeleteRecord = async (id: string) => {
+    try {
+      const token = localStorage.getItem("token")
 
-    toast({
-      title: "Eliminado",
-      description: "El registro ha sido eliminado del historial.",
-    })
+      if (!token) {
+        router.push("/login")
+        return
+      }
+
+      const response = await fetch(`/api/translations/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al eliminar la traducción")
+      }
+
+      // Actualizar el estado local
+      setHistory(history.filter((item) => item._id !== id))
+
+      toast({
+        title: "Eliminado",
+        description: "El registro ha sido eliminado del historial.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el registro",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleClearHistory = () => {
-    setHistory([])
-    localStorage.setItem("translationHistory", JSON.stringify([]))
+  const handleClearHistory = async () => {
+    try {
+      const token = localStorage.getItem("token")
 
-    toast({
-      title: "Historial borrado",
-      description: "Todo el historial de traducciones ha sido eliminado.",
-    })
+      if (!token) {
+        router.push("/login")
+        return
+      }
+
+      const response = await fetch("/api/translations", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error("Error al eliminar el historial")
+      }
+
+      setHistory([])
+
+      toast({
+        title: "Historial borrado",
+        description: "Todo el historial de traducciones ha sido eliminado.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo borrar el historial",
+        variant: "destructive",
+      })
+    }
   }
 
-  if (!isLoggedIn) {
-    return null // Will redirect in useEffect
+  if (!isLoggedIn || isLoading) {
+    return (
+      <div className="container py-8 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   const spanishToBrailleHistory = history.filter((record) => record.direction === "tobraille")
@@ -112,7 +187,7 @@ export default function HistoryPage() {
             <div className="space-y-4">
               {history.map((record) => (
                 <HistoryCard
-                  key={record.id}
+                  key={record._id}
                   record={record}
                   onCopy={handleCopyToClipboard}
                   onDelete={handleDeleteRecord}
@@ -126,7 +201,7 @@ export default function HistoryPage() {
               {spanishToBrailleHistory.length > 0 ? (
                 spanishToBrailleHistory.map((record) => (
                   <HistoryCard
-                    key={record.id}
+                    key={record._id}
                     record={record}
                     onCopy={handleCopyToClipboard}
                     onDelete={handleDeleteRecord}
@@ -147,7 +222,7 @@ export default function HistoryPage() {
               {brailleToSpanishHistory.length > 0 ? (
                 brailleToSpanishHistory.map((record) => (
                   <HistoryCard
-                    key={record.id}
+                    key={record._id}
                     record={record}
                     onCopy={handleCopyToClipboard}
                     onDelete={handleDeleteRecord}
@@ -173,9 +248,9 @@ function HistoryCard({
   onCopy,
   onDelete,
 }: {
-  record: TranslationRecord
+  record: Translation
   onCopy: (text: string) => void
-  onDelete: (id: number) => void
+  onDelete: (id: string) => void
 }) {
   const date = new Date(record.timestamp)
   const formattedDate = date.toLocaleDateString("es-ES", {
@@ -205,7 +280,7 @@ function HistoryCard({
             <Button variant="ghost" size="icon" onClick={() => onCopy(record.outputText)} title="Copiar resultado">
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => onDelete(record.id)} title="Eliminar registro">
+            <Button variant="ghost" size="icon" onClick={() => onDelete(record._id!)} title="Eliminar registro">
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
