@@ -19,11 +19,13 @@ export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
 
+  // Modificar la función handleSubmit para manejar correctamente la redirección
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
+      // Make a real API call to the login endpoint
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -38,31 +40,33 @@ export default function LoginPage() {
         throw new Error(data.error || "Error al iniciar sesión")
       }
 
-      // Guardar token en localStorage
+      // Store user info and token in localStorage
+      localStorage.setItem("user", JSON.stringify(data.user))
       localStorage.setItem("token", data.token)
-
-      // Guardar información del usuario en localStorage
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: data.user._id,
-          name: data.user.name,
-          email: data.user.email,
-          role: data.user.role,
-          avatarUrl: data.user.avatarUrl,
-        }),
-      )
 
       toast({
         title: "Inicio de sesión exitoso",
-        description: data.user.role === "admin" ? "Bienvenido, Administrador" : "Bienvenido de nuevo",
+        description: `Bienvenido, ${data.user.name}`,
       })
 
-      router.push(data.user.role === "admin" ? "/admin" : "/translator")
+      // Check if there's a redirect URL in the query parameters
+      const urlParams = new URLSearchParams(window.location.search)
+      const redirectTo = urlParams.get("redirectTo")
+
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else {
+        // Redirect based on user role
+        if (data.user.role === "admin") {
+          router.push("/admin")
+        } else {
+          router.push("/translator")
+        }
+      }
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Ocurrió un error durante el inicio de sesión. Por favor, intenta de nuevo.",
+        title: "Error de inicio de sesión",
+        description: error.message || "Credenciales incorrectas. Por favor, intenta de nuevo.",
         variant: "destructive",
       })
     } finally {

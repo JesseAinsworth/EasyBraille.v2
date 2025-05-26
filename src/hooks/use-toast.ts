@@ -12,7 +12,15 @@ export function useToast() {
   const [toasts, setToasts] = useState<ToastProps[]>([])
 
   const toast = (props: ToastProps) => {
-    setToasts((prev) => [...prev, props])
+    setToasts((prev) => {
+      // Si el toast ya existe (por título o descripción), no añadirlo
+      if (prev.some(t => t.title === props.title && t.description === props.description)) {
+        return prev;
+      }
+
+      // Agregar nuevo toast al estado
+      return [...prev, props]
+    })
 
     // In a real implementation, we would show a toast notification
     // For this demo, we'll just log to console

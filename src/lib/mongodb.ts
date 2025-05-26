@@ -1,15 +1,11 @@
 import { MongoClient, ServerApiVersion } from "mongodb"
-import type { AiInteraction } from "@/models/AiInteraction"
-import type { EcoKeyboard } from "@/models/EcoKeyboard"
-import type { Translation } from "@/models/Translation"
-import type { User } from "@/models/User"
 
-// URI de conexión a MongoDB
+// MongoDB connection URI
 const uri =
   process.env.MONGODB_URI ||
   "mongodb+srv://morningstar180421:M.star2216@cluster0.53gcs.mongodb.net/easybraille?retryWrites=true&w=majority"
 
-// Crear un cliente de MongoDB
+// Create MongoDB client with proper options
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -18,47 +14,60 @@ const client = new MongoClient(uri, {
   },
 })
 
-// Variable para almacenar la conexión
+// Variable to store connection
 let clientPromise: Promise<MongoClient>
 
 if (process.env.NODE_ENV === "development") {
+  // In development, use a global variable to preserve connection between HMR reloads
   const globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>
   }
 
   if (!globalWithMongo._mongoClientPromise) {
-    globalWithMongo._mongoClientPromise = client.connect()
+    globalWithMongo._mongoClientPromise = client.connect().catch((err) => {
+      console.error("Failed to connect to MongoDB:", err)
+      throw err
+    })
   }
   clientPromise = globalWithMongo._mongoClientPromise
 } else {
-  clientPromise = client.connect()
+  // In production, it's better not to use a global variable
+  clientPromise = client.connect().catch((err) => {
+    console.error("Failed to connect to MongoDB:", err)
+    throw err
+  })
 }
 
 export default clientPromise
 
-// Función para obtener la base de datos
+// Function to get the database
 export async function getDatabase() {
-  const client = await clientPromise
-  return client.db("easybraille")
+  try {
+    const client = await clientPromise
+    return client.db("easybraille")
+  } catch (error) {
+    console.error("Error getting database:", error)
+    throw error
+  }
 }
 
-// Funciones para acceder a colecciones con tipos
+// Functions to access collections
 export async function getAiInteractionsCollection() {
   const db = await getDatabase()
-  return db.collection<AiInteraction>("aiinteractions")
+  return db.collection("aiinteractions")
 }
 
 export async function getEcoKeyboardsCollection() {
   const db = await getDatabase()
-  return db.collection<EcoKeyboard>("ecokeyboards")
+  return db.collection("ecokeyboards")
 }
 
 export async function getTranslationsCollection() {
   const db = await getDatabase()
-  return db.collection<Translation>("translations")
+  return db.collection("translations")
 }
 
 export async function getUsersCollection() {
   const db = await getDatabase()
-  return db.collection<User>("users")
+  return db.collection("users")
 }

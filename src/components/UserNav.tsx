@@ -17,18 +17,26 @@ import {
 
 export function UserNav() {
   const [user, setUser] = useState<{ name: string; email: string; role: string; avatarUrl?: string } | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
     // Get user from localStorage
     const storedUser = localStorage.getItem("user")
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      try {
+        const userData = JSON.parse(storedUser)
+        setUser(userData)
+        setIsAdmin(userData.role === "admin")
+      } catch (error) {
+        console.error("Error parsing user data:", error)
+      }
     }
   }, [])
 
   const handleLogout = () => {
     localStorage.removeItem("user")
+    localStorage.removeItem("token")
     router.push("/login")
   }
 
@@ -54,12 +62,23 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/settings">Configuración</Link>
+            <Link href="/app/settings">Configuración</Link>
           </DropdownMenuItem>
-          {user.role === "admin" && (
+          {isAdmin ? (
+            // Admin-specific menu items
             <DropdownMenuItem asChild>
               <Link href="/admin">Panel de Administración</Link>
             </DropdownMenuItem>
+          ) : (
+            // Regular user menu items
+            <>
+              <DropdownMenuItem asChild>
+                <Link href="/translator">Traductor</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/history">Historial</Link>
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

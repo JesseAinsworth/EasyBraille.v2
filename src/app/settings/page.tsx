@@ -1,8 +1,8 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
-import { Upload, User, Lock, Bell, Shield } from "lucide-react"
+import { User, Lock, Bell, Upload } from "lucide-react"
 
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null)
@@ -22,15 +22,15 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [avatarUrl, setAvatarUrl] = useState<string>("/placeholder.svg?height=128&width=128")
   const [isLoading, setIsLoading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   const router = useRouter()
   const { toast } = useToast()
 
   useEffect(() => {
-    // Verificar si el usuario está autenticado
+    // Check if user is authenticated
     const userData = localStorage.getItem("user")
     if (!userData) {
-      router.push("/login")
+      router.push("/login?redirectTo=/settings")
       return
     }
 
@@ -39,7 +39,7 @@ export default function SettingsPage() {
     setName(parsedUser.name || "")
     setEmail(parsedUser.email || "")
 
-    // Cargar avatar si existe
+    // Load avatar if exists
     if (parsedUser.avatarUrl) {
       setAvatarUrl(parsedUser.avatarUrl)
     }
@@ -49,7 +49,7 @@ export default function SettingsPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simular actualización de perfil
+    // Simulate profile update
     setTimeout(() => {
       if (user) {
         const updatedUser = {
@@ -83,8 +83,8 @@ export default function SettingsPage() {
       return
     }
 
-    // En una aplicación real, verificaríamos la contraseña actual
-    // Para esta demo, simplemente simulamos la actualización
+    // In a real app, we would verify the current password
+    // For this demo, we'll just simulate the update
     setIsLoading(true)
 
     setTimeout(() => {
@@ -103,14 +103,14 @@ export default function SettingsPage() {
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // En una aplicación real, subiríamos el archivo a un servidor
-      // Para esta demo, usamos FileReader para obtener una URL de datos
+      // In a real app, we would upload the file to a server
+      // For this demo, we'll use FileReader to get a data URL
       const reader = new FileReader()
       reader.onload = (event) => {
         const imageUrl = event.target?.result as string
         setAvatarUrl(imageUrl)
 
-        // Actualizar el avatar en el usuario
+        // Update avatar in user
         if (user) {
           const updatedUser = {
             ...user,
@@ -130,7 +130,7 @@ export default function SettingsPage() {
   }
 
   if (!user) {
-    return null // Se redirigirá en el useEffect
+    return null // Will redirect in useEffect
   }
 
   return (
@@ -210,7 +210,7 @@ export default function SettingsPage() {
                     onClick={() => {
                       setAvatarUrl("/placeholder.svg?height=128&width=128")
 
-                      // Actualizar el avatar en el usuario
+                      // Update avatar in user
                       if (user) {
                         const updatedUser = {
                           ...user,
@@ -237,93 +237,49 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="security">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cambiar contraseña</CardTitle>
-                <CardDescription>Actualiza tu contraseña para mantener tu cuenta segura</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handlePasswordUpdate} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword">Contraseña actual</Label>
-                    <Input
-                      id="currentPassword"
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">Nueva contraseña</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirmar nueva contraseña</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Actualizando..." : "Actualizar contraseña"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Tokens de seguridad</CardTitle>
-                <CardDescription>Administra los tokens de acceso a tu cuenta</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-md border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5 text-primary" />
-                      <div>
-                        <p className="font-medium">Sesión actual</p>
-                        <p className="text-sm text-muted-foreground">Navegador: {navigator.userAgent.split(" ")[0]}</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" disabled>
-                      Activa
-                    </Button>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Cambiar contraseña</CardTitle>
+              <CardDescription>Actualiza tu contraseña para mantener tu cuenta segura</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Contraseña actual</Label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
                 </div>
-
-                <div className="rounded-md border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">Aplicación móvil</p>
-                        <p className="text-sm text-muted-foreground">Último acceso: Nunca</p>
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Revocar
-                    </Button>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">Nueva contraseña</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
                 </div>
-
-                <Button variant="outline" className="w-full">
-                  Ver todas las sesiones activas
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirmar nueva contraseña</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Actualizando..." : "Actualizar contraseña"}
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+              </form>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="notifications">

@@ -4,24 +4,92 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Keyboard, Info } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface BrailleKeyboardProps {
   onTextInput: (text: string) => void
+}
+
+// Mapeo de teclas a códigos Braille (simplificado)
+const keyToBrailleCode: Record<string, string> = {
+  a: "100000",
+  b: "110000",
+  c: "100100",
+  d: "100110",
+  e: "100010",
+  f: "110100",
+  g: "110110",
+  h: "110010",
+  i: "010100",
+  j: "010110",
+  k: "101000",
+  l: "111000",
+  m: "101100",
+  n: "101110",
+  o: "101010",
+  p: "111100",
+  q: "111110",
+  r: "111010",
+  s: "011100",
+  t: "011110",
+  u: "101001",
+  v: "111001",
+  w: "010111",
+  x: "101101",
+  y: "101111",
+  z: "101011",
 }
 
 export function BrailleKeyboard({ onTextInput }: BrailleKeyboardProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [lastKey, setLastKey] = useState<string | null>(null)
   const [detectedKeys, setDetectedKeys] = useState<string[]>([])
+  const [deviceId, setDeviceId] = useState<string>("")
+  const { toast } = useToast()
+
+  // Generar un ID de dispositivo único al cargar el componente
+  useEffect(() => {
+    const storedDeviceId = localStorage.getItem("brailleKeyboardDeviceId")
+    if (storedDeviceId) {
+      setDeviceId(storedDeviceId)
+    } else {
+      const newDeviceId = `keyboard_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      localStorage.setItem("brailleKeyboardDeviceId", newDeviceId)
+      setDeviceId(newDeviceId)
+    }
+  }, [])
+
+  // Función para registrar una acción del teclado
+  const logKeyboardAction = async (character: string, actionType: "char" | "space" | "backspace" | "openApp") => {
+    try {
+      const brailleCode = keyToBrailleCode[character] || "000000"
+
+      const token = localStorage.getItem("token")
+      if (!token) return // No registrar si no hay token
+
+      await fetch("/api/keyboard-actions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          brailleCode,
+          character,
+          actionType,
+          deviceId,
+        }),
+      })
+    } catch (error) {
+      console.error("Error al registrar acción del teclado:", error)
+    }
+  }
 
   useEffect(() => {
     // Función para manejar eventos de teclado
     const handleKeyDown = (event: KeyboardEvent) => {
       // Detectar solo letras individuales (sin necesidad de Ctrl+Alt)
       if (event.key.length === 1 && /[a-z]/.test(event.key)) {
-        // No prevenir el comportamiento predeterminado para permitir la escritura normal
-        // event.preventDefault()
-
         const key = event.key.toLowerCase()
         setLastKey(key)
 
@@ -38,18 +106,19 @@ export function BrailleKeyboard({ onTextInput }: BrailleKeyboardProps) {
         // Enviar la tecla al componente padre
         onTextInput(key)
 
+        // Registrar la acción del teclado
+        logKeyboardAction(key, "char")
+
         // Marcar como conectado cuando se detecta una tecla
         setIsConnected(true)
       } else if (event.key === "Backspace") {
         // Manejar la tecla de retroceso
         setLastKey("⌫")
-        // No enviamos nada al componente padre, ya que el navegador
-        // manejará el borrado automáticamente
+        logKeyboardAction("backspace", "backspace")
       } else if (event.key === " ") {
         // Manejar la tecla de espacio
         setLastKey("␣")
-        // No enviamos nada al componente padre, ya que el navegador
-        // manejará el espacio automáticamente
+        logKeyboardAction("space", "space")
       }
     }
 
@@ -60,7 +129,7 @@ export function BrailleKeyboard({ onTextInput }: BrailleKeyboardProps) {
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [onTextInput])
+  }, [onTextInput, deviceId])
 
   // Simular desconexión después de 5 segundos sin actividad
   useEffect(() => {

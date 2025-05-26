@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Users, History, Settings, PlusCircle, Trash2, Edit, Save, X, BarChart3 } from "lucide-react"
+import { Users, History, Settings, PlusCircle, Trash2, Edit, Save, X, BarChart3, Keyboard } from "lucide-react"
+import Link from "next/link"
 
 interface User {
   id: string
@@ -27,6 +28,62 @@ interface FeedbackItem {
   createdAt: string
 }
 
+// Datos mock para evitar llamadas a la API en cada renderizado
+const mockUsers: User[] = [
+  {
+    id: "1",
+    name: "Administrador",
+    email: "admin@example.com",
+    role: "admin",
+    createdAt: "2023-01-01T10:00:00Z",
+  },
+  {
+    id: "2",
+    name: "Usuario",
+    email: "user@example.com",
+    role: "user",
+    createdAt: "2023-01-15T14:30:00Z",
+  },
+  {
+    id: "3",
+    name: "María López",
+    email: "maria@example.com",
+    role: "user",
+    createdAt: "2023-02-10T09:15:00Z",
+  },
+  {
+    id: "4",
+    name: "Carlos Rodríguez",
+    email: "carlos@example.com",
+    role: "user",
+    createdAt: "2023-03-05T16:45:00Z",
+  },
+]
+
+const mockFeedback: FeedbackItem[] = [
+  {
+    id: "1",
+    userId: "2",
+    userName: "Usuario",
+    message: "La aplicación es muy útil, pero sería mejor si tuviera más opciones de personalización.",
+    createdAt: "2023-04-10T11:20:00Z",
+  },
+  {
+    id: "2",
+    userId: "3",
+    userName: "María López",
+    message: "Encontré un error al traducir textos largos. A veces se queda cargando indefinidamente.",
+    createdAt: "2023-04-15T09:30:00Z",
+  },
+  {
+    id: "3",
+    userId: "4",
+    userName: "Carlos Rodríguez",
+    message: "¡Excelente herramienta! Me ha ayudado mucho en mis estudios de Braille.",
+    createdAt: "2023-04-20T14:45:00Z",
+  },
+]
+
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [users, setUsers] = useState<User[]>([])
@@ -35,88 +92,53 @@ export default function AdminPage() {
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editRole, setEditRole] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
 
+  // Efecto para verificar si el usuario es administrador
   useEffect(() => {
-    // Check if user is admin
-    const user = localStorage.getItem("user")
-    if (!user) {
-      router.push("/login")
-      return
+    // Esta función se ejecutará solo una vez al montar el componente
+    const checkAdminStatus = () => {
+      try {
+        // Obtener datos del usuario del localStorage
+        const storedUser = localStorage.getItem("user")
+
+        if (!storedUser) {
+          // Si no hay usuario, redirigir al login
+          router.push("/login")
+          return
+        }
+
+        const userData = JSON.parse(storedUser)
+
+        if (userData.role !== "admin") {
+          // Si el usuario no es admin, mostrar mensaje y redirigir
+          toast({
+            title: "Acceso denegado",
+            description: "No tienes permisos para acceder a esta página",
+            variant: "destructive",
+          })
+          router.push("/")
+          return
+        }
+
+        // Si llegamos aquí, el usuario es admin
+        setIsAdmin(true)
+
+        // Cargar datos mock
+        setUsers(mockUsers)
+        setFeedback(mockFeedback)
+      } catch (error) {
+        console.error("Error al verificar el estado de administrador:", error)
+        router.push("/login")
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    const userData = JSON.parse(user)
-    if (userData.role !== "admin") {
-      toast({
-        title: "Acceso denegado",
-        description: "No tienes permisos para acceder a esta página",
-        variant: "destructive",
-      })
-      router.push("/")
-      return
-    }
-
-    setIsAdmin(true)
-
-    // Load mock data
-    const mockUsers: User[] = [
-      {
-        id: "1",
-        name: "Administrador",
-        email: "admin@example.com",
-        role: "admin",
-        createdAt: "2023-01-01T10:00:00Z",
-      },
-      {
-        id: "2",
-        name: "Usuario",
-        email: "user@example.com",
-        role: "user",
-        createdAt: "2023-01-15T14:30:00Z",
-      },
-      {
-        id: "3",
-        name: "María López",
-        email: "maria@example.com",
-        role: "user",
-        createdAt: "2023-02-10T09:15:00Z",
-      },
-      {
-        id: "4",
-        name: "Carlos Rodríguez",
-        email: "carlos@example.com",
-        role: "user",
-        createdAt: "2023-03-05T16:45:00Z",
-      },
-    ]
-
-    const mockFeedback: FeedbackItem[] = [
-      {
-        id: "1",
-        userId: "2",
-        userName: "Usuario",
-        message: "La aplicación es muy útil, pero sería mejor si tuviera más opciones de personalización.",
-        createdAt: "2023-04-10T11:20:00Z",
-      },
-      {
-        id: "2",
-        userId: "3",
-        userName: "María López",
-        message: "Encontré un error al traducir textos largos. A veces se queda cargando indefinidamente.",
-        createdAt: "2023-04-15T09:30:00Z",
-      },
-      {
-        id: "3",
-        userId: "4",
-        userName: "Carlos Rodríguez",
-        message: "¡Excelente herramienta! Me ha ayudado mucho en mis estudios de Braille.",
-        createdAt: "2023-04-20T14:45:00Z",
-      },
-    ]
-
-    setUsers(mockUsers)
-    setFeedback(mockFeedback)
+    checkAdminStatus()
+    // El array de dependencias vacío asegura que este efecto solo se ejecute una vez
   }, [router, toast])
 
   const handleAddUser = () => {
@@ -178,8 +200,21 @@ export default function AdminPage() {
     })
   }
 
+  // Mostrar un indicador de carga mientras se verifica el estado de administrador
+  if (isLoading) {
+    return (
+      <div className="container py-8 flex justify-center items-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Cargando panel de administración...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Si no es administrador, no renderizar nada (la redirección ocurrirá en el useEffect)
   if (!isAdmin) {
-    return null // Will redirect in useEffect
+    return null
   }
 
   return (
@@ -410,6 +445,16 @@ export default function AdminPage() {
                       <span>Sáb</span>
                       <span>Dom</span>
                     </div>
+                  </div>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Keyboard className="h-5 w-5 text-primary" />
+                      <h3 className="font-medium">Estadísticas del Teclado</h3>
+                    </div>
+                    <p className="text-sm mb-2">Analiza el uso del teclado Braille en la plataforma</p>
+                    <Button variant="outline" size="sm" asChild className="w-full">
+                      <Link href="/admin/keyboard-stats">Ver estadísticas</Link>
+                    </Button>
                   </div>
                 </div>
               </CardContent>

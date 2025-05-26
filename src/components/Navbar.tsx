@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { UserNav } from "@/components/UserNav"
 
@@ -13,15 +13,20 @@ export function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
 
   useEffect(() => {
     // Check if user is logged in from localStorage or session
     const user = localStorage.getItem("user")
     if (user) {
-      setIsLoggedIn(true)
-      // Check if user is admin
-      const userData = JSON.parse(user)
-      setIsAdmin(userData.role === "admin")
+      try {
+        setIsLoggedIn(true)
+        // Check if user is admin
+        const userData = JSON.parse(user)
+        setIsAdmin(userData.role === "admin")
+      } catch (error) {
+        console.error("Error parsing user data:", error)
+      }
     }
   }, [])
 
@@ -39,7 +44,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <Link href="/" className="flex items-center gap-2">
-              <img src="/images/logo22.png" alt="EasyBraille Logo" className="h-8 w-auto rounded" />
+              <img src="/images/lgo22.jpeg" alt="EasyBraille Logo" className="h-8 w-auto rounded" />
               <span className="text-xl font-bold">EasyBraille</span>
             </Link>
           </div>
@@ -47,33 +52,38 @@ export function Navbar() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link
-            href="/translator"
-            className={`text-sm font-medium transition-colors hover:text-primary ${
-              pathname === "/translator" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            Traductor
-          </Link>
-          {isLoggedIn && (
-            <Link
-              href="/history"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname === "/history" ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              Historial
-            </Link>
-          )}
-          {isAdmin && (
+          {isAdmin ? (
+            // Admin navigation
             <Link
               href="/admin"
               className={`text-sm font-medium transition-colors hover:text-primary ${
                 pathname === "/admin" ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              Admin
+              Panel de Administración
             </Link>
+          ) : (
+            // Regular user navigation
+            <>
+              <Link
+                href="/translator"
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  pathname === "/translator" ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                Traductor
+              </Link>
+              {isLoggedIn && (
+                <Link
+                  href="/history"
+                  className={`text-sm font-medium transition-colors hover:text-primary ${
+                    pathname === "/history" ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  Historial
+                </Link>
+              )}
+            </>
           )}
           {isLoggedIn ? (
             <UserNav />
@@ -134,7 +144,7 @@ export function Navbar() {
             )}
             {isLoggedIn ? (
               <div className="flex flex-col gap-2">
-                <Link href="/settings" onClick={closeMenu}>
+                <Link href="/app/settings" onClick={closeMenu}>
                   <Button variant="ghost" size="sm" className="w-full justify-start">
                     Configuración
                   </Button>
@@ -143,11 +153,22 @@ export function Navbar() {
                   variant="ghost"
                   size="sm"
                   className="w-full justify-start"
-                  onClick={() => {
+                  onClick={async () => {
+                    // Limpiar localStorage
                     localStorage.removeItem("user")
+                    localStorage.removeItem("token")
+
+                    // Llamar al endpoint de logout para limpiar cookies
+                    try {
+                      await fetch("/api/auth/logout")
+                    } catch (error) {
+                      console.error("Error al cerrar sesión:", error)
+                    }
+
                     setIsLoggedIn(false)
                     setIsAdmin(false)
                     closeMenu()
+                    router.push("/login")
                   }}
                 >
                   Cerrar Sesión
