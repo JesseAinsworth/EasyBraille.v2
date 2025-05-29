@@ -1,115 +1,101 @@
-import { getUsersCollection } from "@/lib/mongodb"
-import type { User } from "@/models/User"
 import { ObjectId } from "mongodb"
-import bcrypt from "bcryptjs"
+import { hash, compare } from "bcryptjs"
+import { getUsersCollection } from "@/lib/mongodb"
+import { type User, type CreateUserData, type UpdateUserData, validateUserData } from "@/models/User"
 
-export async function findUserByEmail(email: string): Promise<User | null> {
-  try {
-    const collection = await getUsersCollection()
-    return collection.findOne({ email }) as Promise<User | null>
-  } catch (error) {
-    console.error("Error finding user by email:", error)
-    throw error
+export async function createUser(userData: CreateUserData): Promise<User> {
+  // Validar datos
+  const validation = validateUserData(userData)
+  if (!validation.isValid) {
+    throw new Error(`Datos inválidos: ${validation.errors.join(", ")}`)
+  }
+
+  const usersCollection = await getUsersCollection()
+
+  // Verificar si el usuario ya existe
+  const existingUser = await usersCollection.findOne({ email: userData.email })
+  if (existingUser) {
+    throw new Error("El usuario ya existe")
+  }
+
+  // Hashear la contraseña
+  const hashedPassword = await hash(userData.password, 10)
+
+  // Crear el usuario
+  const newUser: Omit<User, "_id"> = {
+    name: userData.name.trim(),
+    email: userData.email.toLowerCase().trim(),
+    password: hashedPassword,
+    role: userData.role || "user",
+    avatarUrl: userData.avatarUrl,
+    createdAt: new Date(),
+    isActive: true,
+  }
+
+  const result = await usersCollection.insertOne(newUser)
+
+  return {
+    ...newUser,
+    _id: result.insertedId,
   }
 }
 
-export async function findUserById(id: string): Promise<User | null> {
-  try {
-    const collection = await getUsersCollection()
-    return collection.findOne({ _id: new ObjectId(id) }) as Promise<User | null>
-  } catch (error) {
-    console.error("Error finding user by ID:", error)
-    throw error
-  }
+export async function getUserById(userId: string): Promise<User | null> {
+  const usersCollection = await getUsersCollection()
+  return await usersCollection.findOne({ _id: new ObjectId(userId) })
 }
 
-export async function createUser(userData: Omit<User, "_id" | "createdAt" | "updatedAt">): Promise<User> {
-  try {
-    const collection = await getUsersCollection()
-
-    // Check if user already exists
-    const existingUser = await findUserByEmail(userData.email)
-    if (existingUser) {
-      throw new Error("El usuario ya existe")
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(userData.password, 10)
-
-    const now = new Date()
-    const newUser: User = {
-      ...userData,
-      password: hashedPassword,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    const result = await collection.insertOne(newUser as any)
-    return {
-      ...newUser,
-      _id: result.insertedId.toString(),
-    }
-  } catch (error) {
-    console.error("Error creating user:", error)
-    throw error
-  }
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const usersCollection = await getUsersCollection()
+  return await usersCollection.findOne({ email: email.toLowerCase().trim() })
 }
 
-export async function updateUser(id: string, userData: Partial<User>): Promise<User | null> {
-  try {
-    const collection = await getUsersCollection()
+export async function updateUser(userId: string, updateData: UpdateUserData): Promise<User | null> {
+  const usersCollection = await getUsersCollection()
 
-    // Don't allow updating email to one that already exists
-    if (userData.email) {
-      const existingUser = await findUserByEmail(userData.email)
-      if (existingUser && existingUser._id !== id) {
-        throw new Error("El email ya está en uso")
-      }
-    }
-
-    // If updating password, hash it
-    if (userData.password) {
-      userData.password = await bcrypt.hash(userData.password, 10)
-    }
-
-    const updateData = {
-      ...userData,
-      updatedAt: new Date(),
-    }
-
-    await collection.updateOne({ _id: new ObjectId(id) }, { $set: updateData })
-
-    return findUserById(id)
-  } catch (error) {
-    console.error("Error updating user:", error)
-    throw error
+  const updateFields: UpdateUserData = {
+    ...updateData,
+    updatedAt: new Date(),
   }
+
+  // Si se está actualizando la contraseña, hashearla
+  if (updateData.password) {
+    updateFields.password = await hash(updateData.password, 10)
+  }
+
+  const result = await usersCollection.findOneAndUpdate(
+    { _id: new ObjectId(userId) },
+    { $set: updateFields },
+    { returnDocument: "after" },
+  )
+
+  return result
 }
 
-export async function validateUser(email: string, password: string): Promise<User | null> {
-  try {
-    const user = await findUserByEmail(email)
-    if (!user) return null
-
-    // Compare password with hashed password in database
-    const isValid = await bcrypt.compare(password, user.password)
-    if (!isValid) return null
-
-    // Don't return the password
-    const { password: _, ...userWithoutPassword } = user
-    return userWithoutPassword as User
-  } catch (error) {
-    console.error("Error validating user:", error)
-    throw error
+export async function verifyPassword(email: string, password: string): Promise<User | null> {
+  const user = await getUserByEmail(email)
+  if (!user) {
+    return null
   }
+
+  const isValid = await compare(password, user.password)
+  if (!isValid) {
+    return null
+  }
+
+  // Actualizar último login
+  await updateUser(user._id!.toString(), { lastLogin: new Date() })
+
+  return user
 }
 
 export async function getAllUsers(): Promise<User[]> {
-  try {
-    const collection = await getUsersCollection()
-    return collection.find({}).toArray() as Promise<User[]>
-  } catch (error) {
-    console.error("Error getting all users:", error)
-    throw error
-  }
+  const usersCollection = await getUsersCollection()
+  return await usersCollection.find({}).toArray()
+}
+
+export async function deleteUser(userId: string): Promise<boolean> {
+  const usersCollection = await getUsersCollection()
+  const result = await usersCollection.deleteOne({ _id: new ObjectId(userId) })
+  return result.deletedCount === 1
 }

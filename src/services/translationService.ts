@@ -1,33 +1,87 @@
+import { ObjectId } from "mongodb"
 import { getTranslationsCollection } from "@/lib/mongodb"
-import type { Translation } from "@/models/Translation"
+import { type Translation, type CreateTranslationData, validateTranslationData } from "@/models/Translation"
 
-export async function saveTranslation(translationData: Omit<Translation, "_id">): Promise<Translation> {
-  const collection = await getTranslationsCollection()
-  const result = await collection.insertOne(translationData as any)
+export async function createTranslation(translationData: CreateTranslationData): Promise<Translation> {
+  // Validar datos
+  const validation = validateTranslationData(translationData)
+  if (!validation.isValid) {
+    throw new Error(`Datos inválidos: ${validation.errors.join(", ")}`)
+  }
+
+  const translationsCollection = await getTranslationsCollection()
+
+  const newTranslation: Omit<Translation, "_id"> = {
+    userId: new ObjectId(translationData.userId),
+    originalText: translationData.originalText.trim(),
+    brailleText: translationData.brailleText.trim(),
+    translationType: translationData.translationType,
+    language: translationData.language || "es",
+    imageUrl: translationData.imageUrl,
+    createdAt: new Date(),
+  }
+
+  const result = await translationsCollection.insertOne(newTranslation)
+
   return {
-    ...translationData,
-    _id: result.insertedId.toString(),
+    ...newTranslation,
+    _id: result.insertedId,
   }
 }
 
-export async function getUserTranslations(userId: string): Promise<Translation[]> {
-  const collection = await getTranslationsCollection()
-  return collection.find({ userId }).sort({ timestamp: -1 }).toArray()
+export async function getTranslationsByUserId(userId: string): Promise<Translation[]> {
+  const translationsCollection = await getTranslationsCollection()
+  return await translationsCollection
+    .find({ userId: new ObjectId(userId) })
+    .sort({ createdAt: -1 })
+    .toArray()
 }
 
-export async function getTranslationById(id: string): Promise<Translation | null> {
-  const collection = await getTranslationsCollection()
-  return collection.findOne({ _id: id }) as Promise<Translation | null>
+export async function getTranslationById(translationId: string): Promise<Translation | null> {
+  const translationsCollection = await getTranslationsCollection()
+  return await translationsCollection.findOne({ _id: new ObjectId(translationId) })
 }
 
-export async function deleteTranslation(id: string): Promise<boolean> {
-  const collection = await getTranslationsCollection()
-  const result = await collection.deleteOne({ _id: id })
+export async function getAllTranslations(): Promise<Translation[]> {
+  const translationsCollection = await getTranslationsCollection()
+  return await translationsCollection.find({}).sort({ createdAt: -1 }).toArray()
+}
+
+export async function deleteTranslation(translationId: string): Promise<boolean> {
+  const translationsCollection = await getTranslationsCollection()
+  const result = await translationsCollection.deleteOne({ _id: new ObjectId(translationId) })
   return result.deletedCount === 1
 }
 
-export async function deleteAllUserTranslations(userId: string): Promise<number> {
-  const collection = await getTranslationsCollection()
-  const result = await collection.deleteMany({ userId })
-  return result.deletedCount || 0
+export async function getTranslationStats() {
+  const translationsCollection = await getTranslationsCollection()
+
+  const totalTranslations = await translationsCollection.countDocuments()
+  const translationsByType = await translationsCollection
+    .aggregate([
+      {
+        $group: {
+          _id: "$translationType",
+          count: { $sum: 1 },
+        },
+      },
+    ])
+    .toArray()
+
+  const translationsByLanguage = await translationsCollection
+    .aggregate([
+      {
+        $group: {
+          _id: "$language",
+          count: { $sum: 1 },
+        },
+      },
+    ])
+    .toArray()
+
+  return {
+    total: totalTranslations,
+    byType: translationsByType,
+    byLanguage: translationsByLanguage,
+  }
 }
