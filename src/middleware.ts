@@ -3,8 +3,8 @@ import { verify } from "jsonwebtoken"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
 
-// Rutas que no requieren autenticación
-const publicRoutes = ["/", "/login", "/register", "/reset-password", "/translator", "/braille-keyboard", "/settings"]
+// Rutas públicas que no requieren autenticación
+const publicRoutes = ["/", "/login", "/register", "/reset-password", "/translator", "/braille-keyboard"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -29,15 +29,16 @@ export async function middleware(request: NextRequest) {
 
   try {
     // Verificar y decodificar el token
-    const decoded = verify(token, JWT_SECRET) as any
+    const decoded = verify(token, JWT_SECRET)
 
     // Verificar acceso a rutas de administrador
-    if (pathname.startsWith("/admin") && decoded.role !== "admin") {
+    if (pathname.startsWith("/admin") && (decoded as any).role !== "admin") {
       return NextResponse.redirect(new URL("/", request.url))
     }
 
     return NextResponse.next()
   } catch (error) {
+    console.error("Error en middleware:", error)
     // Token inválido o expirado
     return NextResponse.redirect(new URL(`/login?redirectTo=${encodeURIComponent(pathname)}`, request.url))
   }

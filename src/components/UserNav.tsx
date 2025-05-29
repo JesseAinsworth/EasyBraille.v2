@@ -8,36 +8,41 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Settings, Shield, LogOut } from "lucide-react"
 
 export function UserNav() {
   const [user, setUser] = useState<{ name: string; email: string; role: string; avatarUrl?: string } | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
     // Get user from localStorage
     const storedUser = localStorage.getItem("user")
     if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser)
-        setUser(userData)
-        setIsAdmin(userData.role === "admin")
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-      }
+      setUser(JSON.parse(storedUser))
     }
   }, [])
 
-  const handleLogout = () => {
-    localStorage.removeItem("user")
-    localStorage.removeItem("token")
-    router.push("/login")
+  const handleLogout = async () => {
+    try {
+      // Call logout API to clear server-side session
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      })
+    } catch (error) {
+      console.error("Error during logout:", error)
+    } finally {
+      // Clear client-side data
+      localStorage.removeItem("user")
+      localStorage.removeItem("token")
+      setUser(null)
+      router.push("/login")
+    }
   }
 
   if (!user) return null
@@ -60,29 +65,28 @@ export function UserNav() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup>
+
+        <DropdownMenuItem asChild>
+          <Link href="/app/settings" className="flex items-center">
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Configuración</span>
+          </Link>
+        </DropdownMenuItem>
+
+        {user.role === "admin" && (
           <DropdownMenuItem asChild>
-            <Link href="/app/settings">Configuración</Link>
+            <Link href="/admin" className="flex items-center">
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Panel de Administración</span>
+            </Link>
           </DropdownMenuItem>
-          {isAdmin ? (
-            // Admin-specific menu items
-            <DropdownMenuItem asChild>
-              <Link href="/admin">Panel de Administración</Link>
-            </DropdownMenuItem>
-          ) : (
-            // Regular user menu items
-            <>
-              <DropdownMenuItem asChild>
-                <Link href="/translator">Traductor</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/history">Historial</Link>
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuGroup>
+        )}
+
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>Cerrar Sesión</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout} className="flex items-center text-red-600 focus:text-red-600">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Cerrar Sesión</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

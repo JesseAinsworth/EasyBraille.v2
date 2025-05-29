@@ -1,29 +1,30 @@
 "use client"
 
-import Link from "next/link"
 import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { usePathname, useRouter } from "next/navigation"
-import { Menu, X } from "lucide-react"
 import { UserNav } from "@/components/UserNav"
+import { Menu, X } from "lucide-react"
 
-// Exportar el componente con nombre
+interface User {
+  name: string
+  email: string
+  role: string
+  avatarUrl?: string
+}
+
 export function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is logged in from localStorage or session
-    const user = localStorage.getItem("user")
-    if (user) {
+    // Get user from localStorage
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
       try {
-        setIsLoggedIn(true)
-        // Check if user is admin
-        const userData = JSON.parse(user)
-        setIsAdmin(userData.role === "admin")
+        setUser(JSON.parse(storedUser))
       } catch (error) {
         console.error("Error parsing user data:", error)
       }
@@ -31,166 +32,103 @@ export function Navbar() {
   }, [])
 
   const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
+    setIsOpen(!isOpen)
   }
 
   const closeMenu = () => {
-    setIsMenuOpen(false)
+    setIsOpen(false)
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Link href="/" className="flex items-center gap-2">
-              <img src="/images/lgo22.jpeg" alt="EasyBraille Logo" className="h-8 w-auto rounded" />
-              <span className="text-xl font-bold">EasyBraille</span>
+    <nav className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">EB</span>
+              </div>
+              <span className="font-bold text-xl text-gray-900">EasyBraille</span>
             </Link>
           </div>
-        </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          {isAdmin ? (
-            // Admin navigation
-            <Link
-              href="/admin"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname === "/admin" ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              Panel de Administración
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            <Link href="/translator" className="text-gray-600 hover:text-gray-900 transition-colors">
+              Traductor
             </Link>
-          ) : (
-            // Regular user navigation
-            <>
-              <Link
-                href="/translator"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  pathname === "/translator" ? "text-primary" : "text-muted-foreground"
-                }`}
-              >
-                Traductor
-              </Link>
-              {isLoggedIn && (
-                <Link
-                  href="/history"
-                  className={`text-sm font-medium transition-colors hover:text-primary ${
-                    pathname === "/history" ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  Historial
-                </Link>
-              )}
-            </>
-          )}
-          {isLoggedIn ? (
-            <UserNav />
-          ) : (
-            <div className="flex items-center gap-4">
-              <Link href="/login">
-                <Button variant="ghost" size="sm">
-                  Iniciar Sesión
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button size="sm">Registrarse</Button>
-              </Link>
-            </div>
-          )}
-        </nav>
+            <Link href="/history" className="text-gray-600 hover:text-gray-900 transition-colors">
+              Historial
+            </Link>
 
-        {/* Mobile Menu Button */}
-        <button className="md:hidden flex items-center justify-center" onClick={toggleMenu} aria-label="Toggle Menu">
-          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+            {user ? (
+              <UserNav />
+            ) : (
+              <div className="flex items-center space-x-4">
+                <Link href="/login">
+                  <Button variant="ghost">Iniciar Sesión</Button>
+                </Link>
+                <Link href="/register">
+                  <Button>Registrarse</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center space-x-2">
+            {user && <UserNav />}
+            <button
+              onClick={toggleMenu}
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            >
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="md:hidden border-t">
-          <div className="container py-4 flex flex-col gap-4">
+      {/* Mobile Navigation Menu */}
+      {isOpen && (
+        <div className="md:hidden">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t">
             <Link
               href="/translator"
-              className={`text-sm font-medium transition-colors hover:text-primary ${
-                pathname === "/translator" ? "text-primary" : "text-muted-foreground"
-              }`}
+              className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
               onClick={closeMenu}
             >
               Traductor
             </Link>
-            {isLoggedIn && (
-              <Link
-                href="/history"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  pathname === "/history" ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={closeMenu}
-              >
-                Historial
-              </Link>
-            )}
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  pathname === "/admin" ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={closeMenu}
-              >
-                Admin
-              </Link>
-            )}
-            {isLoggedIn ? (
-              <div className="flex flex-col gap-2">
-                <Link href="/app/settings" onClick={closeMenu}>
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                    Configuración
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={async () => {
-                    // Limpiar localStorage
-                    localStorage.removeItem("user")
-                    localStorage.removeItem("token")
+            <Link
+              href="/history"
+              className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+              onClick={closeMenu}
+            >
+              Historial
+            </Link>
 
-                    // Llamar al endpoint de logout para limpiar cookies
-                    try {
-                      await fetch("/api/auth/logout")
-                    } catch (error) {
-                      console.error("Error al cerrar sesión:", error)
-                    }
-
-                    setIsLoggedIn(false)
-                    setIsAdmin(false)
-                    closeMenu()
-                    router.push("/login")
-                  }}
+            {!user && (
+              <>
+                <div className="border-t border-gray-200 my-2"></div>
+                <Link
+                  href="/login"
+                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                  onClick={closeMenu}
                 >
-                  Cerrar Sesión
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <Link href="/login" onClick={closeMenu}>
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                    Iniciar Sesión
-                  </Button>
+                  Iniciar Sesión
                 </Link>
-                <Link href="/register" onClick={closeMenu}>
-                  <Button size="sm" className="w-full">
-                    Registrarse
-                  </Button>
+                <Link
+                  href="/register"
+                  className="block px-3 py-2 text-base font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md"
+                  onClick={closeMenu}
+                >
+                  Registrarse
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </div>
       )}
-    </header>
+    </nav>
   )
 }
