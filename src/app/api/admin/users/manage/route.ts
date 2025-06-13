@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("❌ API ERROR al crear usuario:", error)
 
-    // Información detallada sobre el error
     let errorMessage = error.message || "Error al crear usuario"
     const statusCode = 500
 
@@ -121,18 +120,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "ID de usuario requerido" }, { status: 400 })
     }
 
-    // Obtener la colección de usuarios directamente
-    const usersCollection = await getUsersCollection()
-    console.log("✅ API: Colección de usuarios obtenida")
-
-    // Convertir ID a ObjectId si es posible
-    let userId
-    try {
-      userId = new ObjectId(userData.userId)
-    } catch (error) {
-      console.log("⚠️ API: ID no válido, usando como string:", userData.userId)
-      userId = userData.userId
+    if (!ObjectId.isValid(userData.userId)) {
+      console.log("❌ API: ID de usuario no válido:", userData.userId)
+      return NextResponse.json({ error: "ID de usuario no válido" }, { status: 400 })
     }
+
+    const userId = new ObjectId(userData.userId)
 
     // Preparar datos de actualización
     const updateData = {
@@ -144,6 +137,8 @@ export async function PUT(request: NextRequest) {
       },
     }
 
+    const usersCollection = await getUsersCollection()
+    console.log("✅ API: Colección de usuarios obtenida")
     console.log("📝 API: Actualizando usuario:", userId)
     console.log("📝 API: Datos de actualización:", JSON.stringify(updateData))
 
@@ -188,7 +183,6 @@ export async function PUT(request: NextRequest) {
   } catch (error: any) {
     console.error("❌ API ERROR al actualizar usuario:", error)
 
-    // Información detallada sobre el error
     let errorMessage = error.message || "Error al actualizar usuario"
     const statusCode = 500
 
@@ -219,25 +213,15 @@ export async function DELETE(request: NextRequest) {
 
     console.log("📦 API: ID recibido:", userId)
 
-    if (!userId) {
-      console.log("❌ API: Falta ID de usuario")
-      return NextResponse.json({ error: "ID de usuario requerido" }, { status: 400 })
+    if (!userId || !ObjectId.isValid(userId)) {
+      console.log("❌ API: ID de usuario no válido o faltante")
+      return NextResponse.json({ error: "ID de usuario no válido" }, { status: 400 })
     }
 
-    // Obtener la colección de usuarios directamente
+    const objectId = new ObjectId(userId)
+
     const usersCollection = await getUsersCollection()
     console.log("✅ API: Colección de usuarios obtenida")
-
-    // Convertir ID a ObjectId si es posible
-    let objectId
-    try {
-      objectId = new ObjectId(userId)
-    } catch (error) {
-      console.log("⚠️ API: ID no válido, usando como string:", userId)
-      objectId = userId
-    }
-
-    console.log("📝 API: Eliminando usuario:", objectId)
 
     // Verificar si el usuario existe antes de intentar eliminarlo
     const userExists = await usersCollection.findOne({ _id: objectId })
@@ -265,7 +249,6 @@ export async function DELETE(request: NextRequest) {
   } catch (error: any) {
     console.error("❌ API ERROR al eliminar usuario:", error)
 
-    // Información detallada sobre el error
     let errorMessage = error.message || "Error al eliminar usuario"
     const statusCode = 500
 

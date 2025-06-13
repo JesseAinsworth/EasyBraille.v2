@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
     const usersCollection = await getUsersCollection()
     console.log("✅ DEBUG: Colección de usuarios obtenida")
 
-    // Crear un usuario de prueba
     const hashedPassword = await hash(data.password || "password123", 10)
 
     const newUser = {
@@ -69,16 +68,21 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const usersCollection = await getUsersCollection()
-    console.log("✅ DEBUG: Colección de usuarios obtenida")
-
-    let userId
+    let userId: ObjectId
     try {
       userId = new ObjectId(data.userId)
     } catch (error) {
-      console.log("⚠️ DEBUG: ID no válido, usando como string:", data.userId)
-      userId = data.userId
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El ID proporcionado no es válido",
+        },
+        { status: 400 },
+      )
     }
+
+    const usersCollection = await getUsersCollection()
+    console.log("✅ DEBUG: Colección de usuarios obtenida")
 
     const updateData = {
       $set: {
@@ -151,16 +155,21 @@ export async function DELETE(request: NextRequest) {
 
     console.log("📦 DEBUG: ID recibido:", userId)
 
-    const usersCollection = await getUsersCollection()
-    console.log("✅ DEBUG: Colección de usuarios obtenida")
-
-    let objectId
+    let objectId: ObjectId
     try {
       objectId = new ObjectId(userId)
     } catch (error) {
-      console.log("⚠️ DEBUG: ID no válido, usando como string:", userId)
-      objectId = userId
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El ID proporcionado no es válido",
+        },
+        { status: 400 },
+      )
     }
+
+    const usersCollection = await getUsersCollection()
+    console.log("✅ DEBUG: Colección de usuarios obtenida")
 
     console.log("📝 DEBUG: Intentando eliminar usuario:", objectId)
 
@@ -213,7 +222,6 @@ export async function GET(request: NextRequest) {
 
     console.log(`✅ DEBUG: ${users.length} usuarios encontrados`)
 
-    // Eliminar contraseñas antes de devolver
     const safeUsers = users.map((user) => ({
       ...user,
       _id: user._id.toString(),

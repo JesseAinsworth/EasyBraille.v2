@@ -52,24 +52,17 @@ export async function updateUser(userId: string, updateData: any) {
 
     const usersCollection = await getUsersCollection()
 
-    // Convertir ID a ObjectId si es posible
-    let objectId
-    try {
-      objectId = new ObjectId(userId)
-    } catch (error) {
-      console.log("⚠️ userService: ID no válido, usando como string:", userId)
-      objectId = userId
+    if (!ObjectId.isValid(userId)) {
+      throw new Error("ID de usuario no válido")
     }
+    const objectId = new ObjectId(userId)
 
-    // Si hay una nueva contraseña, hashearla
     if (updateData.password) {
       updateData.password = await hash(updateData.password, 10)
     }
 
-    // Añadir fecha de actualización
     updateData.updatedAt = new Date()
 
-    // Actualizar el usuario
     const result = await usersCollection.findOneAndUpdate(
       { _id: objectId },
       { $set: updateData },
@@ -96,16 +89,11 @@ export async function deleteUser(userId: string) {
 
     const usersCollection = await getUsersCollection()
 
-    // Convertir ID a ObjectId si es posible
-    let objectId
-    try {
-      objectId = new ObjectId(userId)
-    } catch (error) {
-      console.log("⚠️ userService: ID no válido, usando como string:", userId)
-      objectId = userId
+    if (!ObjectId.isValid(userId)) {
+      throw new Error("ID de usuario no válido")
     }
+    const objectId = new ObjectId(userId)
 
-    // Eliminar el usuario
     const result = await usersCollection.deleteOne({ _id: objectId })
 
     if (result.deletedCount === 0) {
@@ -128,7 +116,6 @@ export async function authenticateUser(email: string, password: string) {
 
     const usersCollection = await getUsersCollection()
 
-    // Buscar el usuario por email
     const user = await usersCollection.findOne({ email })
 
     if (!user) {
@@ -136,7 +123,6 @@ export async function authenticateUser(email: string, password: string) {
       throw new Error("Credenciales inválidas")
     }
 
-    // Verificar la contraseña
     const isPasswordValid = await compare(password, user.password)
 
     if (!isPasswordValid) {
@@ -146,10 +132,7 @@ export async function authenticateUser(email: string, password: string) {
 
     console.log("✅ userService: Usuario autenticado:", email)
 
-    // Generar token JWT
     const token = createToken(user)
-
-    // Devolver usuario y token (sin la contraseña)
     const { password: _, ...userWithoutPassword } = user
 
     return {
@@ -172,16 +155,11 @@ export async function getUserById(userId: string) {
 
     const usersCollection = await getUsersCollection()
 
-    // Convertir ID a ObjectId si es posible
-    let objectId
-    try {
-      objectId = new ObjectId(userId)
-    } catch (error) {
-      console.log("⚠️ userService: ID no válido, usando como string:", userId)
-      objectId = userId
+    if (!ObjectId.isValid(userId)) {
+      throw new Error("ID de usuario no válido")
     }
+    const objectId = new ObjectId(userId)
 
-    // Buscar el usuario
     const user = await usersCollection.findOne({ _id: objectId })
 
     if (!user) {
@@ -191,7 +169,6 @@ export async function getUserById(userId: string) {
 
     console.log("✅ userService: Usuario encontrado:", userId)
 
-    // Devolver usuario sin la contraseña
     const { password, ...userWithoutPassword } = user
 
     return {
@@ -210,13 +187,10 @@ export async function getAllUsers() {
     console.log("🔄 userService: Obteniendo todos los usuarios")
 
     const usersCollection = await getUsersCollection()
-
-    // Obtener todos los usuarios
     const users = await usersCollection.find({}).toArray()
 
     console.log(`✅ userService: ${users.length} usuarios encontrados`)
 
-    // Devolver usuarios sin contraseñas
     return users.map((user) => {
       const { password, ...userWithoutPassword } = user
       return {
