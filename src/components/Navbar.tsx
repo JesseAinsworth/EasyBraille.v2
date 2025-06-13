@@ -39,6 +39,8 @@ export function Navbar() {
     setIsOpen(false)
   }
 
+  const isAdmin = user?.role === "admin"
+
   return (
     <nav className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -60,6 +62,18 @@ export function Navbar() {
             <Link href="/history" className="text-gray-600 hover:text-gray-900 transition-colors">
               Historial
             </Link>
+
+            {/* Admin-only links */}
+            {isAdmin && (
+              <>
+                <Link href="/regression" className="text-gray-600 hover:text-gray-900 transition-colors">
+                  Regresión
+                </Link>
+                <Link href="/classification" className="text-gray-600 hover:text-gray-900 transition-colors">
+                  Clasificación
+                </Link>
+              </>
+            )}
 
             {user ? (
               <UserNav />
@@ -107,9 +121,28 @@ export function Navbar() {
               Historial
             </Link>
 
+            {/* Admin-only links in mobile menu */}
+            {isAdmin && (
+              <>
+                <Link
+                  href="/regression"
+                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                  onClick={closeMenu}
+                >
+                  Regresión
+                </Link>
+                <Link
+                  href="/classification"
+                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                  onClick={closeMenu}
+                >
+                  Clasificación
+                </Link>
+              </>
+            )}
+
             {!user && (
               <>
-                <div className="border-t border-gray-200 my-2"></div>
                 <Link
                   href="/login"
                   className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
@@ -119,7 +152,7 @@ export function Navbar() {
                 </Link>
                 <Link
                   href="/register"
-                  className="block px-3 py-2 text-base font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md"
+                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
                   onClick={closeMenu}
                 >
                   Registrarse

@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowDownUp, Copy, Volume2, History, KeyboardIcon } from "lucide-react"
+import { ArrowDownUp, Copy, Volume2, History, KeyboardIcon, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ImageCapture } from "@/components/ImageCapture"
 import { BrailleKeyboard } from "@/components/BrailleKeyboard"
 import { useRouter } from "next/navigation"
+import { generateTranslationPDF } from "@/lib/generatorPdf"
 
 export default function TranslatorPage() {
   const [inputText, setInputText] = useState("")
@@ -17,15 +18,24 @@ export default function TranslatorPage() {
   const [translationDirection, setTranslationDirection] = useState<"tobraille" | "frombraille">("tobraille")
   const [isLoading, setIsLoading] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<any>(null)
   const [showBrailleKeyboard, setShowBrailleKeyboard] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastTranslationTime, setLastTranslationTime] = useState<Date | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
   useEffect(() => {
     // Check if user is logged in
-    const user = localStorage.getItem("user")
-    if (user) {
-      setIsLoggedIn(true)
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser)
+        setUser(userData)
+        setIsLoggedIn(true)
+      } catch (error) {
+        console.error("Error parsing user data:", error)
+      }
     }
   }, [])
 
@@ -41,125 +51,198 @@ export default function TranslatorPage() {
 
     setIsLoading(true)
     try {
-      // In a real app, this would be an API call
-      // For demo purposes, we'll simulate a translation
-      setTimeout(async () => {
-        let result = ""
+      // Simulate translation processing
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        if (translationDirection === "tobraille") {
-          // Simple Spanish to Braille mapping (just for demo)
-          const brailleMap: { [key: string]: string } = {
-            a: "⠁",
-            b: "⠃",
-            c: "⠉",
-            d: "⠙",
-            e: "⠑",
-            f: "⠋",
-            g: "⠛",
-            h: "⠓",
-            i: "⠊",
-            j: "⠚",
-            k: "⠅",
-            l: "⠇",
-            m: "⠍",
-            n: "⠝",
-            o: "⠕",
-            p: "⠏",
-            q: "⠟",
-            r: "⠗",
-            s: "⠎",
-            t: "⠞",
-            u: "⠥",
-            v: "⠧",
-            w: "⠺",
-            x: "⠭",
-            y: "⠽",
-            z: "⠵",
-            " ": " ",
-          }
+      let result = ""
 
-          result = inputText
-            .toLowerCase()
-            .split("")
-            .map((char) => {
-              return brailleMap[char] || char
-            })
-            .join("")
-        } else {
-          // Simple Braille to Spanish mapping (just for demo)
-          const spanishMap: { [key: string]: string } = {
-            "⠁": "a",
-            "⠃": "b",
-            "⠉": "c",
-            "⠙": "d",
-            "⠑": "e",
-            "⠋": "f",
-            "⠛": "g",
-            "⠓": "h",
-            "⠊": "i",
-            "⠚": "j",
-            "⠅": "k",
-            "⠇": "l",
-            "⠍": "m",
-            "⠝": "n",
-            "⠕": "o",
-            "⠏": "p",
-            "⠟": "q",
-            "⠗": "r",
-            "⠎": "s",
-            "⠞": "t",
-            "⠥": "u",
-            "⠧": "v",
-            "⠺": "w",
-            "⠭": "x",
-            "⠽": "y",
-            "⠵": "z",
-            " ": " ",
-          }
-
-          result = inputText
-            .split("")
-            .map((char) => {
-              return spanishMap[char] || char
-            })
-            .join("")
+      if (translationDirection === "tobraille") {
+        // Simple Spanish to Braille mapping
+        const brailleMap: { [key: string]: string } = {
+          a: "⠁",
+          b: "⠃",
+          c: "⠉",
+          d: "⠙",
+          e: "⠑",
+          f: "⠋",
+          g: "⠛",
+          h: "⠓",
+          i: "⠊",
+          j: "⠚",
+          k: "⠅",
+          l: "⠇",
+          m: "⠍",
+          n: "⠝",
+          o: "⠕",
+          p: "⠏",
+          q: "⠟",
+          r: "⠗",
+          s: "⠎",
+          t: "⠞",
+          u: "⠥",
+          v: "⠧",
+          w: "⠺",
+          x: "⠭",
+          y: "⠽",
+          z: "⠵",
+          " ": " ",
+          ".": "⠲",
+          ",": "⠂",
+          "?": "⠦",
+          "!": "⠖",
+          á: "⠷",
+          é: "⠮",
+          í: "⠌",
+          ó: "⠬",
+          ú: "⠾",
+          ñ: "⠻",
         }
 
-        setOutputText(result)
-
-        // Save to database if logged in
-        if (isLoggedIn) {
-          try {
-            const token = localStorage.getItem("token")
-
-            if (token) {
-              await fetch("/api/translations", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  inputText,
-                  outputText: result,
-                  direction: translationDirection,
-                }),
-              })
-            }
-          } catch (error) {
-            console.error("Error saving translation:", error)
-          }
+        result = inputText
+          .toLowerCase()
+          .split("")
+          .map((char) => brailleMap[char] || char)
+          .join("")
+      } else {
+        // Simple Braille to Spanish mapping
+        const spanishMap: { [key: string]: string } = {
+          "⠁": "a",
+          "⠃": "b",
+          "⠉": "c",
+          "⠙": "d",
+          "⠑": "e",
+          "⠋": "f",
+          "⠛": "g",
+          "⠓": "h",
+          "⠊": "i",
+          "⠚": "j",
+          "⠅": "k",
+          "⠇": "l",
+          "⠍": "m",
+          "⠝": "n",
+          "⠕": "o",
+          "⠏": "p",
+          "⠟": "q",
+          "⠗": "r",
+          "⠎": "s",
+          "⠞": "t",
+          "⠥": "u",
+          "⠧": "v",
+          "⠺": "w",
+          "⠭": "x",
+          "⠽": "y",
+          "⠵": "z",
+          " ": " ",
+          "⠲": ".",
+          "⠂": ",",
+          "⠦": "?",
+          "⠖": "!",
+          "⠷": "á",
+          "⠮": "é",
+          "⠌": "í",
+          "⠬": "ó",
+          "⠾": "ú",
+          "⠻": "ñ",
         }
 
-        setIsLoading(false)
-      }, 1000)
+        result = inputText
+          .split("")
+          .map((char) => spanishMap[char] || char)
+          .join("")
+      }
+
+      setOutputText(result)
+      setLastTranslationTime(new Date())
+
+      // Save to database if logged in
+      if (isLoggedIn && user) {
+        await saveTranslationToDatabase(inputText, result)
+      }
+
+      toast({
+        title: "Traducción completada",
+        description: isLoggedIn ? "Traducción guardada en tu historial" : "Traducción completada",
+      })
     } catch (error) {
+      console.error("Error during translation:", error)
       toast({
         title: "Error",
         description: "Ocurrió un error durante la traducción. Por favor, intenta de nuevo.",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
+    }
+  }
+
+  const saveTranslationToDatabase = async (originalText: string, translatedText: string) => {
+    setIsSaving(true)
+    try {
+      const response = await fetch("/api/translations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          originalText: originalText.trim(),
+          brailleText: translatedText.trim(),
+          translationType: translationDirection === "tobraille" ? "TEXT_TO_BRAILLE" : "BRAILLE_TO_TEXT",
+          language: "es",
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Error al guardar traducción")
+      }
+
+      const data = await response.json()
+      console.log("Translation saved successfully:", data)
+    } catch (error: any) {
+      console.error("Error saving translation:", error)
+      toast({
+        title: "Error al guardar",
+        description: error.message || "No se pudo guardar la traducción en la base de datos",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDownloadPDF = () => {
+    if (!inputText.trim() || !outputText.trim()) {
+      toast({
+        title: "No hay traducción",
+        description: "Primero realiza una traducción para poder descargar el PDF.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const translationData = {
+        originalText: inputText,
+        translatedText: outputText,
+        translationType: translationDirection === "tobraille" ? "TEXT_TO_BRAILLE" : ("BRAILLE_TO_TEXT" as const),
+        timestamp: lastTranslationTime || new Date(),
+        language: "es",
+      }
+
+      generateTranslationPDF(translationData)
+
+      toast({
+        title: "PDF generado",
+        description: "La traducción se ha descargado como PDF exitosamente.",
+      })
+    } catch (error) {
+      console.error("Error generating PDF:", error)
+      toast({
+        title: "Error al generar PDF",
+        description: "Ocurrió un error al generar el archivo PDF. Por favor, intenta de nuevo.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -169,22 +252,38 @@ export default function TranslatorPage() {
     setOutputText(inputText)
   }
 
-  const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(outputText)
-    toast({
-      title: "Copiado",
-      description: "El texto ha sido copiado al portapapeles.",
-    })
+  const handleCopyToClipboard = async () => {
+    if (!outputText) return
+
+    try {
+      await navigator.clipboard.writeText(outputText)
+      toast({
+        title: "Copiado",
+        description: "El texto ha sido copiado al portapapeles.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el texto al portapapeles.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleTextToSpeech = () => {
     if (!outputText) return
 
-    // Only use text-to-speech for Spanish text
     if (translationDirection === "frombraille") {
       const utterance = new SpeechSynthesisUtterance(outputText)
       utterance.lang = "es-ES"
+      utterance.rate = 0.8
+      utterance.pitch = 1
       window.speechSynthesis.speak(utterance)
+
+      toast({
+        title: "Reproduciendo",
+        description: "Reproduciendo texto en voz alta",
+      })
     } else {
       toast({
         title: "No disponible",
@@ -196,7 +295,6 @@ export default function TranslatorPage() {
 
   const handleBrailleKeyInput = (text: string) => {
     if (translationDirection === "frombraille") {
-      // Si estamos traduciendo de Braille a español, añadimos el carácter Braille correspondiente
       const brailleMap: { [key: string]: string } = {
         a: "⠁",
         b: "⠃",
@@ -226,12 +324,17 @@ export default function TranslatorPage() {
         z: "⠵",
       }
 
-      const brailleChar = brailleMap[text] || text
+      const brailleChar = brailleMap[text.toLowerCase()] || text
       setInputText((prev) => prev + brailleChar)
     } else {
-      // Si estamos traduciendo de español a Braille, añadimos el carácter directamente
       setInputText((prev) => prev + text)
     }
+  }
+
+  const handleClearText = () => {
+    setInputText("")
+    setOutputText("")
+    setLastTranslationTime(null)
   }
 
   return (
@@ -248,11 +351,15 @@ export default function TranslatorPage() {
         <TabsContent value="text" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>{translationDirection === "tobraille" ? "Español a Braille" : "Braille a Español"}</CardTitle>
+              <CardTitle>
+                {translationDirection === "tobraille" ? "Español a Braille" : "Braille a Español"}
+                {isSaving && <span className="text-sm text-blue-600 ml-2">(Guardando...)</span>}
+              </CardTitle>
               <CardDescription>
                 {translationDirection === "tobraille"
                   ? "Ingresa texto en español para convertirlo a Braille"
                   : "Ingresa texto en Braille para convertirlo a español"}
+                {isLoggedIn && " • Las traducciones se guardan automáticamente"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -287,7 +394,7 @@ export default function TranslatorPage() {
               </div>
 
               <div className="flex flex-wrap gap-3 justify-center">
-                <Button onClick={handleTranslate} disabled={isLoading}>
+                <Button onClick={handleTranslate} disabled={isLoading || !inputText.trim()}>
                   {isLoading ? "Traduciendo..." : "Traducir"}
                 </Button>
                 <Button variant="outline" onClick={handleSwapDirection}>
@@ -297,6 +404,10 @@ export default function TranslatorPage() {
                 <Button variant="outline" onClick={handleCopyToClipboard} disabled={!outputText}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copiar resultado
+                </Button>
+                <Button variant="outline" onClick={handleDownloadPDF} disabled={!outputText}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar PDF
                 </Button>
                 <Button
                   variant="outline"
@@ -310,6 +421,9 @@ export default function TranslatorPage() {
                   <KeyboardIcon className="mr-2 h-4 w-4" />
                   {showBrailleKeyboard ? "Ocultar teclado" : "Mostrar teclado"}
                 </Button>
+                <Button variant="outline" onClick={handleClearText} disabled={!inputText && !outputText}>
+                  Limpiar
+                </Button>
                 {isLoggedIn && (
                   <Button variant="outline" onClick={() => router.push("/history")}>
                     <History className="mr-2 h-4 w-4" />
@@ -321,6 +435,15 @@ export default function TranslatorPage() {
               {showBrailleKeyboard && (
                 <div className="mt-4">
                   <BrailleKeyboard onTextInput={handleBrailleKeyInput} />
+                </div>
+              )}
+
+              {!isLoggedIn && (
+                <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    💡 <strong>Tip:</strong> Inicia sesión para guardar automáticamente tus traducciones y acceder a tu
+                    historial.
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -338,7 +461,6 @@ export default function TranslatorPage() {
                 onTextDetected={(text) => {
                   setTranslationDirection("frombraille")
                   setInputText(text)
-                  // Trigger translation automatically
                   setTimeout(() => handleTranslate(), 500)
                 }}
               />
@@ -349,8 +471,8 @@ export default function TranslatorPage() {
         <TabsContent value="keyboard">
           <Card>
             <CardHeader>
-              <CardTitle>Teclado Braille Arduino</CardTitle>
-              <CardDescription>Utiliza tu teclado Braille Arduino para escribir directamente</CardDescription>
+              <CardTitle>Teclado Braille Virtual</CardTitle>
+              <CardDescription>Utiliza el teclado virtual para escribir en Braille</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <BrailleKeyboard onTextInput={handleBrailleKeyInput} />
@@ -382,7 +504,7 @@ export default function TranslatorPage() {
               </div>
 
               <div className="flex flex-wrap gap-3 justify-center">
-                <Button onClick={handleTranslate} disabled={isLoading}>
+                <Button onClick={handleTranslate} disabled={isLoading || !inputText.trim()}>
                   {isLoading ? "Traduciendo..." : "Traducir"}
                 </Button>
                 <Button variant="outline" onClick={handleSwapDirection}>
@@ -393,6 +515,10 @@ export default function TranslatorPage() {
                   <Copy className="mr-2 h-4 w-4" />
                   Copiar resultado
                 </Button>
+                <Button variant="outline" onClick={handleDownloadPDF} disabled={!outputText}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar PDF
+                </Button>
                 <Button
                   variant="outline"
                   onClick={handleTextToSpeech}
@@ -400,6 +526,9 @@ export default function TranslatorPage() {
                 >
                   <Volume2 className="mr-2 h-4 w-4" />
                   Leer en voz alta
+                </Button>
+                <Button variant="outline" onClick={handleClearText} disabled={!inputText && !outputText}>
+                  Limpiar
                 </Button>
               </div>
             </CardContent>

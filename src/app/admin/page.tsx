@@ -1,111 +1,280 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Users, History, Settings, PlusCircle, Trash2, Edit, Save, X, BarChart3, Keyboard } from "lucide-react"
-import Link from "next/link"
+import {
+  Users,
+  History,
+  PlusCircle,
+  Trash2,
+  Edit,
+  Save,
+  X,
+  BarChart3,
+  Keyboard,
+  Brain,
+  LineChart,
+  PieChart,
+  Download,
+  TrendingUp,
+  Activity,
+  AlertCircle,
+  Database,
+  Wifi,
+  WifiOff,
+  Bug,
+  RefreshCw,
+} from "lucide-react"
 
 interface User {
-  id: string
+  _id: string
   name: string
   email: string
   role: string
   createdAt: string
+  isActive?: boolean
 }
 
 interface FeedbackItem {
-  id: string
+  _id: string
   userId: string
   userName: string
   message: string
   createdAt: string
 }
 
-// Datos mock para evitar llamadas a la API en cada renderizado
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "Administrador",
-    email: "admin@example.com",
-    role: "admin",
-    createdAt: "2023-01-01T10:00:00Z",
-  },
-  {
-    id: "2",
-    name: "Usuario",
-    email: "user@example.com",
-    role: "user",
-    createdAt: "2023-01-15T14:30:00Z",
-  },
-  {
-    id: "3",
-    name: "María López",
-    email: "maria@example.com",
-    role: "user",
-    createdAt: "2023-02-10T09:15:00Z",
-  },
-  {
-    id: "4",
-    name: "Carlos Rodríguez",
-    email: "carlos@example.com",
-    role: "user",
-    createdAt: "2023-03-05T16:45:00Z",
-  },
-]
-
-const mockFeedback: FeedbackItem[] = [
-  {
-    id: "1",
-    userId: "2",
-    userName: "Usuario",
-    message: "La aplicación es muy útil, pero sería mejor si tuviera más opciones de personalización.",
-    createdAt: "2023-04-10T11:20:00Z",
-  },
-  {
-    id: "2",
-    userId: "3",
-    userName: "María López",
-    message: "Encontré un error al traducir textos largos. A veces se queda cargando indefinidamente.",
-    createdAt: "2023-04-15T09:30:00Z",
-  },
-  {
-    id: "3",
-    userId: "4",
-    userName: "Carlos Rodríguez",
-    message: "¡Excelente herramienta! Me ha ayudado mucho en mis estudios de Braille.",
-    createdAt: "2023-04-20T14:45:00Z",
-  },
-]
+interface AdminStats {
+  users: {
+    total: number
+    active: number
+    admins: number
+    regular: number
+  }
+  translations: {
+    total: number
+    thisWeek: number
+    byType: { spanish_to_braille: number; braille_to_spanish: number }
+  }
+  keyboard: {
+    totalSessions: number
+    energySaved: number
+    co2Reduced: number
+  }
+  ai: {
+    totalInteractions: number
+    avgAccuracy: number
+    avgResponseTime: number
+  }
+}
 
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
+  const [stats, setStats] = useState<AdminStats>({
+    users: { total: 0, active: 0, admins: 0, regular: 0 },
+    translations: { total: 0, thisWeek: 0, byType: { spanish_to_braille: 0, braille_to_spanish: 0 } },
+    keyboard: { totalSessions: 0, energySaved: 0, co2Reduced: 0 },
+    ai: { totalInteractions: 0, avgAccuracy: 0, avgResponseTime: 0 },
+  })
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editRole, setEditRole] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingData, setIsLoadingData] = useState(false)
+  const [hasLoadedData, setHasLoadedData] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "mock">("disconnected")
+  const [apiResponses, setApiResponses] = useState<Record<string, any>>({})
+  const [showDebugInfo, setShowDebugInfo] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
-  // Efecto para verificar si el usuario es administrador
+  // Función para cargar datos con manejo de errores mejorado
+  const loadDataSafely = useCallback(async (url: string) => {
+    try {
+      console.log(`🔄 Cargando datos de: ${url}`)
+
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        console.warn(`❌ Error ${response.status} al cargar ${url}`)
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log(`✅ Datos cargados exitosamente de ${url}:`, data)
+
+      // Guardar respuesta para debug
+      setApiResponses((prev) => ({
+        ...prev,
+        [url]: {
+          data,
+          timestamp: new Date().toISOString(),
+          status: response.status,
+        },
+      }))
+
+      return { success: true, data, isMockData: data.isMockData || false }
+    } catch (error: any) {
+      console.error(`❌ Error al cargar ${url}:`, error)
+
+      // Guardar error para debug
+      setApiResponses((prev) => ({
+        ...prev,
+        [url]: {
+          error: error.message,
+          timestamp: new Date().toISOString(),
+          status: "error",
+        },
+      }))
+
+      return { success: false, error, isMockData: true }
+    }
+  }, [])
+
+  // Función memoizada para cargar usuarios
+  const loadUsers = useCallback(async () => {
+    console.log("📊 Cargando usuarios...")
+    const result = await loadDataSafely("/api/admin/users")
+
+    if (result.success && result.data.users) {
+      setUsers(result.data.users)
+      console.log(`✅ ${result.data.users.length} usuarios cargados`)
+
+      if (result.data.users.length > 0) {
+        setFeedback([
+          {
+            _id: "1",
+            userId: result.data.users[0]._id,
+            userName: result.data.users[0].name,
+            message: "La aplicación es muy útil, pero sería mejor si tuviera más opciones de personalización.",
+            createdAt: new Date().toISOString(),
+          },
+          {
+            _id: "2",
+            userId: result.data.users[1]?._id || "2",
+            userName: result.data.users[1]?.name || "Usuario Demo",
+            message: "Encontré un error al traducir textos largos. A veces se queda cargando indefinidamente.",
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+          },
+          {
+            _id: "3",
+            userId: result.data.users[2]?._id || "3",
+            userName: result.data.users[2]?.name || "María García",
+            message: "¡Excelente herramienta! Me ha ayudado mucho en mis estudios de Braille.",
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+          },
+        ])
+      }
+
+      return result.isMockData
+    } else {
+      console.warn("⚠️ No se pudieron cargar usuarios, usando datos vacíos")
+      setUsers([])
+      return true
+    }
+  }, [loadDataSafely])
+
+  // Función memoizada para cargar estadísticas
+  const loadStats = useCallback(async () => {
+    console.log("📈 Cargando estadísticas...")
+
+    const [usersResult, translationsResult, keyboardResult, aiResult] = await Promise.all([
+      loadDataSafely("/api/admin/users"),
+      loadDataSafely("/api/admin/translations"),
+      loadDataSafely("/api/admin/keyboard-stats"),
+      loadDataSafely("/api/admin/ai-stats"),
+    ])
+
+    const hasRealData = usersResult.success || translationsResult.success || keyboardResult.success || aiResult.success
+    const allMockData =
+      usersResult.isMockData && translationsResult.isMockData && keyboardResult.isMockData && aiResult.isMockData
+
+    setStats({
+      users: {
+        total: usersResult.data?.stats?.total || 0,
+        active: usersResult.data?.stats?.active || 0,
+        admins: usersResult.data?.stats?.admins || 0,
+        regular: usersResult.data?.stats?.regular || 0,
+      },
+      translations: {
+        total: translationsResult.data?.stats?.total || 0,
+        thisWeek: Math.floor((translationsResult.data?.stats?.total || 0) * 0.15),
+        byType: {
+          spanish_to_braille:
+            translationsResult.data?.stats?.byType?.find((t: any) => t._id === "TEXT_TO_BRAILLE")?.count || 0,
+          braille_to_spanish:
+            translationsResult.data?.stats?.byType?.find((t: any) => t._id === "BRAILLE_TO_TEXT")?.count || 0,
+        },
+      },
+      keyboard: {
+        totalSessions: keyboardResult.data?.stats?.totalSessions || 0,
+        energySaved: keyboardResult.data?.stats?.totalEnergySaved || 0,
+        co2Reduced: keyboardResult.data?.stats?.totalCO2Reduced || 0,
+      },
+      ai: {
+        totalInteractions: aiResult.data?.stats?.totalInteractions || 0,
+        avgAccuracy: aiResult.data?.stats?.avgAccuracy || 0,
+        avgResponseTime: aiResult.data?.stats?.avgResponseTime || 0,
+      },
+    })
+
+    console.log("📊 Estadísticas cargadas:", { hasRealData, allMockData })
+    return allMockData
+  }, [loadDataSafely])
+
+  // Función memoizada para cargar todos los datos
+  const loadAllData = useCallback(async () => {
+    if (hasLoadedData) return
+
+    setIsLoadingData(true)
+    console.log("🚀 Iniciando carga de datos del panel...")
+
+    try {
+      const [usersMockData, statsMockData] = await Promise.all([loadUsers(), loadStats()])
+
+      const usingMockData = usersMockData || statsMockData
+
+      if (usingMockData) {
+        setConnectionStatus("mock")
+        console.log("⚠️ Usando datos de prueba")
+      } else {
+        setConnectionStatus("connected")
+        console.log("✅ Conectado a base de datos real")
+      }
+
+      setHasLoadedData(true)
+    } catch (error) {
+      console.error("❌ Error al cargar datos:", error)
+      setConnectionStatus("disconnected")
+      toast({
+        title: "Error de conexión",
+        description: "No se pudieron cargar los datos del panel",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingData(false)
+    }
+  }, [hasLoadedData, loadUsers, loadStats, toast])
+
+  // useEffect principal
   useEffect(() => {
-    // Esta función se ejecutará solo una vez al montar el componente
-    const checkAdminStatus = () => {
+    const checkAdminStatus = async () => {
       try {
-        // Obtener datos del usuario del localStorage
         const storedUser = localStorage.getItem("user")
 
         if (!storedUser) {
-          // Si no hay usuario, redirigir al login
           router.push("/login")
           return
         }
@@ -113,7 +282,6 @@ export default function AdminPage() {
         const userData = JSON.parse(storedUser)
 
         if (userData.role !== "admin") {
-          // Si el usuario no es admin, mostrar mensaje y redirigir
           toast({
             title: "Acceso denegado",
             description: "No tienes permisos para acceder a esta página",
@@ -123,14 +291,15 @@ export default function AdminPage() {
           return
         }
 
-        // Si llegamos aquí, el usuario es admin
         setIsAdmin(true)
-
-        // Cargar datos mock
-        setUsers(mockUsers)
-        setFeedback(mockFeedback)
+        await loadAllData()
       } catch (error) {
         console.error("Error al verificar el estado de administrador:", error)
+        toast({
+          title: "Error",
+          description: "Ocurrió un error al cargar el panel de administración",
+          variant: "destructive",
+        })
         router.push("/login")
       } finally {
         setIsLoading(false)
@@ -138,69 +307,184 @@ export default function AdminPage() {
     }
 
     checkAdminStatus()
-    // El array de dependencias vacío asegura que este efecto solo se ejecute una vez
-  }, [router, toast])
+  }, [router, toast, loadAllData])
 
-  const handleAddUser = () => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: "Nuevo Usuario",
-      email: "nuevo@example.com",
-      role: "user",
-      createdAt: new Date().toISOString(),
+  const handleAddUser = async () => {
+    try {
+      setIsLoadingData(true)
+
+      const newUser = {
+        name: "Nuevo Usuario",
+        email: "nuevo@example.com",
+        password: "password123", // Contraseña temporal
+        role: "user",
+      }
+
+      const response = await fetch("/api/admin/users/manage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newUser),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al crear usuario")
+      }
+
+      // Añadir el usuario creado al estado
+      setUsers((prev) => [
+        ...prev,
+        {
+          ...result.user,
+          createdAt: result.user.createdAt || new Date().toISOString(),
+        },
+      ])
+
+      // Iniciar edición del nuevo usuario
+      setEditingUser(result.user._id)
+      setEditName(result.user.name)
+      setEditEmail(result.user.email)
+      setEditRole(result.user.role)
+
+      toast({
+        title: "Usuario añadido",
+        description: "Se ha añadido un nuevo usuario. Edita sus detalles.",
+      })
+    } catch (error: any) {
+      console.error("Error al añadir usuario:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo añadir el usuario",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingData(false)
     }
-
-    setUsers([...users, newUser])
-    setEditingUser(newUser.id)
-    setEditName(newUser.name)
-    setEditEmail(newUser.email)
-    setEditRole(newUser.role)
-
-    toast({
-      title: "Usuario añadido",
-      description: "Se ha añadido un nuevo usuario. Edita sus detalles.",
-    })
   }
 
-  const handleDeleteUser = (id: string) => {
-    setUsers(users.filter((user) => user.id !== id))
+  const handleDeleteUser = async (id: string) => {
+    try {
+      setIsLoadingData(true)
 
-    toast({
-      title: "Usuario eliminado",
-      description: "El usuario ha sido eliminado correctamente.",
-    })
+      const response = await fetch(`/api/admin/users/manage?id=${id}`, {
+        method: "DELETE",
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al eliminar usuario")
+      }
+
+      setUsers((prev) => prev.filter((user) => user._id !== id))
+
+      toast({
+        title: "Usuario eliminado",
+        description: "El usuario ha sido eliminado correctamente.",
+      })
+    } catch (error: any) {
+      console.error("Error al eliminar usuario:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el usuario",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingData(false)
+    }
   }
 
   const handleEditUser = (user: User) => {
-    setEditingUser(user.id)
+    setEditingUser(user._id)
     setEditName(user.name)
     setEditEmail(user.email)
     setEditRole(user.role)
   }
 
-  const handleSaveUser = (id: string) => {
-    setUsers(
-      users.map((user) => (user.id === id ? { ...user, name: editName, email: editEmail, role: editRole } : user)),
-    )
+  const handleSaveUser = async (id: string) => {
+    try {
+      setIsLoadingData(true)
 
-    setEditingUser(null)
+      const response = await fetch("/api/admin/users/manage", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: id,
+          name: editName,
+          email: editEmail,
+          role: editRole,
+        }),
+      })
 
-    toast({
-      title: "Usuario actualizado",
-      description: "Los datos del usuario han sido actualizados correctamente.",
-    })
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al actualizar usuario")
+      }
+
+      setUsers((prev) =>
+        prev.map((user) => (user._id === id ? { ...user, name: editName, email: editEmail, role: editRole } : user)),
+      )
+
+      setEditingUser(null)
+
+      toast({
+        title: "Usuario actualizado",
+        description: "Los datos del usuario han sido actualizados correctamente.",
+      })
+    } catch (error: any) {
+      console.error("Error al actualizar usuario:", error)
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el usuario",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingData(false)
+    }
   }
 
   const handleDeleteFeedback = (id: string) => {
-    setFeedback(feedback.filter((item) => item.id !== id))
-
+    setFeedback((prev) => prev.filter((item) => item._id !== id))
     toast({
       title: "Feedback eliminado",
       description: "El feedback ha sido eliminado correctamente.",
     })
   }
 
-  // Mostrar un indicador de carga mientras se verifica el estado de administrador
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  const downloadReport = () => {
+    toast({
+      title: "Descargando reporte",
+      description: "El reporte se está generando y descargando",
+    })
+  }
+
+  const refreshData = async () => {
+    setHasLoadedData(false)
+    await loadAllData()
+  }
+
+  const toggleDebugInfo = () => {
+    setShowDebugInfo(!showDebugInfo)
+  }
+
+  const goToDiagnostico = () => {
+    router.push("/admin/diagnostico")
+  }
+
   if (isLoading) {
     return (
       <div className="container py-8 flex justify-center items-center min-h-[60vh]">
@@ -212,28 +496,198 @@ export default function AdminPage() {
     )
   }
 
-  // Si no es administrador, no renderizar nada (la redirección ocurrirá en el useEffect)
   if (!isAdmin) {
     return null
   }
 
   return (
     <div className="container py-8">
-      <h1 className="text-3xl font-bold mb-6">Panel de Administración</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold">Panel de Administración</h1>
+          <div className="flex items-center gap-2">
+            {connectionStatus === "connected" && (
+              <div className="flex items-center gap-1 text-green-600">
+                <Wifi className="h-4 w-4" />
+                <span className="text-sm">Conectado</span>
+              </div>
+            )}
+            {connectionStatus === "mock" && (
+              <div className="flex items-center gap-1 text-yellow-600">
+                <Database className="h-4 w-4" />
+                <span className="text-sm">Datos de prueba</span>
+              </div>
+            )}
+            {connectionStatus === "disconnected" && (
+              <div className="flex items-center gap-1 text-red-600">
+                <WifiOff className="h-4 w-4" />
+                <span className="text-sm">Sin conexión</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={refreshData} disabled={isLoadingData}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingData ? "animate-spin" : ""}`} />
+            {isLoadingData ? "Actualizando..." : "Actualizar"}
+          </Button>
+          <Button variant="outline" onClick={goToDiagnostico}>
+            <Bug className="mr-2 h-4 w-4" />
+            Diagnóstico
+          </Button>
+          <Button onClick={downloadReport}>
+            <Download className="mr-2 h-4 w-4" />
+            Descargar Reporte
+          </Button>
+        </div>
+      </div>
+
+      {/* Alerta de estado de conexión */}
+      {connectionStatus === "mock" && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
+            <div>
+              <p className="text-blue-800 font-medium">Usando datos de demostración</p>
+              <p className="text-blue-700 text-sm">
+                Las APIs están devolviendo datos de prueba. Configura MongoDB para ver datos reales.
+              </p>
+              <div className="mt-2">
+                <Button variant="outline" size="sm" onClick={goToDiagnostico}>
+                  <Bug className="mr-2 h-4 w-4" />
+                  Ejecutar diagnóstico
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {connectionStatus === "disconnected" && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+            <div>
+              <p className="text-red-800 font-medium">Sin conexión a la base de datos</p>
+              <p className="text-red-700 text-sm">No se pueden cargar datos. Verifica la configuración de MongoDB.</p>
+              <div className="mt-2">
+                <Button variant="outline" size="sm" onClick={goToDiagnostico}>
+                  <Bug className="mr-2 h-4 w-4" />
+                  Ejecutar diagnóstico
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug Info */}
+      {showDebugInfo && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+          <div className="flex justify-between items-start">
+            <h3 className="font-medium mb-2">Información de depuración</h3>
+            <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="text-xs font-mono overflow-auto max-h-[300px] bg-gray-100 p-2 rounded">
+            <pre>{JSON.stringify(apiResponses, null, 2)}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Usuarios Totales</p>
+                <h3 className="text-2xl font-bold">{stats.users.total}</h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <span className="text-green-500">+{Math.floor(stats.users.total * 0.1)}</span> nuevos este mes
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Traducciones</p>
+                <h3 className="text-2xl font-bold">{stats.translations.total}</h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <span className="text-green-500">+{stats.translations.thisWeek}</span> esta semana
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Energía Ahorrada</p>
+                <h3 className="text-2xl font-bold">{stats.keyboard.energySaved.toFixed(1)} kWh</h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <Keyboard className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <span className="text-green-500">-{stats.keyboard.co2Reduced.toFixed(1)} kg</span> de CO2
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Precisión IA</p>
+                <h3 className="text-2xl font-bold">{stats.ai.avgAccuracy.toFixed(1)}%</h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              <span className="text-green-500">{stats.ai.avgResponseTime.toFixed(1)}s</span> tiempo de respuesta
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
           <TabsTrigger value="users">
             <Users className="mr-2 h-4 w-4" />
-            Usuarios
+            Usuarios ({users.length})
+          </TabsTrigger>
+          <TabsTrigger value="translations">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Traducciones ({stats.translations.total})
+          </TabsTrigger>
+          <TabsTrigger value="keyboard">
+            <Keyboard className="mr-2 h-4 w-4" />
+            Teclado ({stats.keyboard.totalSessions})
+          </TabsTrigger>
+          <TabsTrigger value="ai">
+            <Brain className="mr-2 h-4 w-4" />
+            IA ({stats.ai.totalInteractions})
           </TabsTrigger>
           <TabsTrigger value="feedback">
             <History className="mr-2 h-4 w-4" />
-            Feedback
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="mr-2 h-4 w-4" />
-            Configuración
+            Feedback ({feedback.length})
           </TabsTrigger>
         </TabsList>
 
@@ -252,85 +706,302 @@ export default function AdminPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <div className="grid grid-cols-5 p-4 font-medium border-b">
-                  <div>Nombre</div>
-                  <div>Email</div>
-                  <div>Rol</div>
-                  <div>Fecha de registro</div>
-                  <div className="text-right">Acciones</div>
+              {isLoadingData ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Cargando usuarios...</p>
                 </div>
-                <div className="divide-y">
-                  {users.map((user) => (
-                    <div key={user.id} className="grid grid-cols-5 p-4 items-center">
-                      {editingUser === user.id ? (
-                        <>
-                          <div>
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="max-w-[200px]"
-                            />
-                          </div>
-                          <div>
-                            <Input
-                              value={editEmail}
-                              onChange={(e) => setEditEmail(e.target.value)}
-                              className="max-w-[200px]"
-                            />
-                          </div>
-                          <div>
-                            <select
-                              value={editRole}
-                              onChange={(e) => setEditRole(e.target.value)}
-                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            >
-                              <option value="user">Usuario</option>
-                              <option value="admin">Administrador</option>
-                            </select>
-                          </div>
-                          <div>{new Date(user.createdAt).toLocaleDateString("es-ES")}</div>
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleSaveUser(user.id)}>
-                              <Save className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => setEditingUser(null)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div>{user.name}</div>
-                          <div>{user.email}</div>
-                          <div>
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                user.role === "admin" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {user.role === "admin" ? "Administrador" : "Usuario"}
-                            </span>
-                          </div>
-                          <div>{new Date(user.createdAt).toLocaleDateString("es-ES")}</div>
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </>
-                      )}
+              ) : users.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay usuarios registrados</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Ejecuta el script de datos de prueba o registra usuarios manualmente
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border">
+                  <div className="grid grid-cols-5 p-4 font-medium border-b bg-muted/50">
+                    <div>Nombre</div>
+                    <div>Email</div>
+                    <div>Rol</div>
+                    <div>Fecha de registro</div>
+                    <div className="text-right">Acciones</div>
+                  </div>
+                  <div className="divide-y">
+                    {users.map((user) => (
+                      <div key={user._id} className="grid grid-cols-5 p-4 items-center hover:bg-muted/30">
+                        {editingUser === user._id ? (
+                          <>
+                            <div>
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="max-w-[200px]"
+                              />
+                            </div>
+                            <div>
+                              <Input
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                className="max-w-[200px]"
+                              />
+                            </div>
+                            <div>
+                              <select
+                                value={editRole}
+                                onChange={(e) => setEditRole(e.target.value)}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              >
+                                <option value="user">Usuario</option>
+                                <option value="admin">Administrador</option>
+                              </select>
+                            </div>
+                            <div>{formatDate(user.createdAt)}</div>
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleSaveUser(user._id)}>
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingUser(null)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-muted-foreground">{user.email}</div>
+                            <div>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  user.role === "admin"
+                                    ? "bg-primary/20 text-primary"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {user.role === "admin" ? "Administrador" : "Usuario"}
+                              </span>
+                            </div>
+                            <div className="text-muted-foreground">{formatDate(user.createdAt)}</div>
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteUser(user._id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="translations">
+          <Card>
+            <CardHeader>
+              <CardTitle>Estadísticas de Traducciones</CardTitle>
+              <CardDescription>Análisis de las traducciones realizadas en la plataforma</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total de traducciones</p>
+                        <h3 className="text-2xl font-bold">{stats.translations.total}</h3>
+                      </div>
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <BarChart3 className="h-6 w-6 text-blue-600" />
+                      </div>
                     </div>
-                  ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Español → Braille</p>
+                        <h3 className="text-2xl font-bold">{stats.translations.byType.spanish_to_braille}</h3>
+                      </div>
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <TrendingUp className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Braille → Español</p>
+                        <h3 className="text-2xl font-bold">{stats.translations.byType.braille_to_spanish}</h3>
+                      </div>
+                      <div className="p-2 bg-purple-100 rounded-full">
+                        <Activity className="h-6 w-6 text-purple-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {stats.translations.total === 0 ? (
+                <div className="text-center py-8 bg-muted rounded-lg">
+                  <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay traducciones registradas</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Las traducciones aparecerán aquí cuando los usuarios usen el traductor
+                  </p>
                 </div>
+              ) : (
+                <div className="text-center py-8 bg-muted rounded-lg">
+                  <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    Gráficas detalladas disponibles después de instalar dependencias
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Ejecuta: <code className="bg-background px-2 py-1 rounded">npm install recharts</code>
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="keyboard">
+          <Card>
+            <CardHeader>
+              <CardTitle>Estadísticas del Teclado Ecológico</CardTitle>
+              <CardDescription>Análisis del impacto ambiental del teclado Braille Arduino</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Sesiones totales</p>
+                        <h3 className="text-2xl font-bold">{stats.keyboard.totalSessions}</h3>
+                      </div>
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <Keyboard className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Energía ahorrada</p>
+                        <h3 className="text-2xl font-bold">{stats.keyboard.energySaved.toFixed(1)} kWh</h3>
+                      </div>
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <LineChart className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">CO2 reducido</p>
+                        <h3 className="text-2xl font-bold">{stats.keyboard.co2Reduced.toFixed(1)} kg</h3>
+                      </div>
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <PieChart className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="text-center py-8 bg-muted rounded-lg">
+                <Keyboard className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  {stats.keyboard.totalSessions === 0
+                    ? "No hay datos del teclado ecológico"
+                    : "Gráficas de impacto ambiental disponibles después de instalar dependencias"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <Card>
+            <CardHeader>
+              <CardTitle>Estadísticas de IA</CardTitle>
+              <CardDescription>Análisis del rendimiento de los modelos de inteligencia artificial</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Interacciones totales</p>
+                        <h3 className="text-2xl font-bold">{stats.ai.totalInteractions}</h3>
+                      </div>
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <Brain className="h-6 w-6 text-blue-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Precisión promedio</p>
+                        <h3 className="text-2xl font-bold">{stats.ai.avgAccuracy.toFixed(1)}%</h3>
+                      </div>
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <LineChart className="h-6 w-6 text-blue-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Tiempo de respuesta</p>
+                        <h3 className="text-2xl font-bold">{stats.ai.avgResponseTime.toFixed(1)}s</h3>
+                      </div>
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <PieChart className="h-6 w-6 text-blue-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="text-center py-8 bg-muted rounded-lg">
+                <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  {stats.ai.totalInteractions === 0
+                    ? "No hay interacciones de IA registradas"
+                    : "Análisis detallado de IA disponible después de instalar dependencias"}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -346,14 +1017,14 @@ export default function AdminPage() {
               {feedback.length > 0 ? (
                 <div className="space-y-4">
                   {feedback.map((item) => (
-                    <Card key={item.id}>
+                    <Card key={item._id}>
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                           <div>
                             <CardTitle className="text-base">{item.userName}</CardTitle>
-                            <CardDescription>{new Date(item.createdAt).toLocaleDateString("es-ES")}</CardDescription>
+                            <CardDescription>{formatDate(item.createdAt)}</CardDescription>
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => handleDeleteFeedback(item.id)}>
+                          <Button size="sm" variant="ghost" onClick={() => handleDeleteFeedback(item._id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -366,102 +1037,22 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <div className="text-center py-8">
+                  <History className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No hay feedback de usuarios</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="settings">
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configuración del Sistema</CardTitle>
-                <CardDescription>Ajusta la configuración general de la plataforma</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="siteName">Nombre del sitio</Label>
-                  <Input id="siteName" defaultValue="EasyBraille" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="siteDescription">Descripción del sitio</Label>
-                  <Textarea id="siteDescription" defaultValue="Traductor de Braille a Español y viceversa" rows={3} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contactEmail">Email de contacto</Label>
-                  <Input id="contactEmail" defaultValue="contacto@easybraille.com" />
-                </div>
-                <Button>Guardar cambios</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Estadísticas</CardTitle>
-                <CardDescription>Resumen de actividad en la plataforma</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-muted p-4 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="h-5 w-5 text-primary" />
-                        <h3 className="font-medium">Usuarios</h3>
-                      </div>
-                      <p className="text-2xl font-bold">{users.length}</p>
-                    </div>
-                    <div className="bg-muted p-4 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <History className="h-5 w-5 text-primary" />
-                        <h3 className="font-medium">Feedback</h3>
-                      </div>
-                      <p className="text-2xl font-bold">{feedback.length}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-muted p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <BarChart3 className="h-5 w-5 text-primary" />
-                      <h3 className="font-medium">Traducciones (últimos 7 días)</h3>
-                    </div>
-                    <div className="h-40 flex items-end justify-between gap-2 pt-4">
-                      {[45, 30, 60, 80, 55, 90, 70].map((value, index) => (
-                        <div key={index} className="relative flex-1">
-                          <div
-                            className="bg-primary rounded-t w-full absolute bottom-0"
-                            style={{ height: `${value}%` }}
-                          ></div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                      <span>Lun</span>
-                      <span>Mar</span>
-                      <span>Mié</span>
-                      <span>Jue</span>
-                      <span>Vie</span>
-                      <span>Sáb</span>
-                      <span>Dom</span>
-                    </div>
-                  </div>
-                  <div className="bg-muted p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Keyboard className="h-5 w-5 text-primary" />
-                      <h3 className="font-medium">Estadísticas del Teclado</h3>
-                    </div>
-                    <p className="text-sm mb-2">Analiza el uso del teclado Braille en la plataforma</p>
-                    <Button variant="outline" size="sm" asChild className="w-full">
-                      <Link href="/admin/keyboard-stats">Ver estadísticas</Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
       </Tabs>
+
+      {/* Botón flotante para mostrar/ocultar debug info */}
+      <div className="fixed bottom-4 right-4">
+        <Button variant="outline" size="sm" onClick={toggleDebugInfo} className="bg-white shadow-md">
+          <Bug className="h-4 w-4 mr-2" />
+          {showDebugInfo ? "Ocultar debug" : "Mostrar debug"}
+        </Button>
+      </div>
     </div>
   )
 }

@@ -19,13 +19,12 @@ export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  // Modificar la función handleSubmit para manejar correctamente la redirección
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      // Make a real API call to the login endpoint
+      // Realizar la solicitud de inicio de sesión a la API
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -40,23 +39,29 @@ export default function LoginPage() {
         throw new Error(data.error || "Error al iniciar sesión")
       }
 
-      // Store user info and token in localStorage
+      // Guardar información del usuario en localStorage
       localStorage.setItem("user", JSON.stringify(data.user))
-      localStorage.setItem("token", data.token)
+
+      // Guardar el token si está disponible
+      if (data.token) {
+        localStorage.setItem("token", data.token)
+      }
+
+      console.log("✅ Login exitoso:", data.user)
 
       toast({
         title: "Inicio de sesión exitoso",
-        description: `Bienvenido, ${data.user.name}`,
+        description: `Bienvenido, ${data.user.name || data.user.email.split("@")[0]}`,
       })
 
-      // Check if there's a redirect URL in the query parameters
+      // Verificar si hay una URL de redirección en los parámetros de consulta
       const urlParams = new URLSearchParams(window.location.search)
       const redirectTo = urlParams.get("redirectTo")
 
       if (redirectTo) {
         router.push(redirectTo)
       } else {
-        // Redirect based on user role
+        // Redirigir según el rol del usuario
         if (data.user.role === "admin") {
           router.push("/admin")
         } else {
@@ -64,6 +69,7 @@ export default function LoginPage() {
         }
       }
     } catch (error: any) {
+      console.error("Error de inicio de sesión:", error)
       toast({
         title: "Error de inicio de sesión",
         description: error.message || "Credenciales incorrectas. Por favor, intenta de nuevo.",
@@ -71,6 +77,17 @@ export default function LoginPage() {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Función para login rápido con usuarios de prueba
+  const quickLogin = (userType: "admin" | "user") => {
+    if (userType === "admin") {
+      setEmail("admin@example.com")
+      setPassword("admin123")
+    } else {
+      setEmail("user@example.com")
+      setPassword("user123")
     }
   }
 
@@ -111,6 +128,25 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+            </div>
+
+            {/* Botones de login rápido para desarrollo */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Usuarios de prueba:</p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => quickLogin("admin")}
+                  className="flex-1"
+                >
+                  Admin
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => quickLogin("user")} className="flex-1">
+                  Usuario
+                </Button>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">

@@ -1,65 +1,107 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { saveTranslation, getUserTranslations, deleteAllUserTranslations } from "@/services/translationService"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { getTranslationsCollection } from "@/lib/mongodb"
+import { ObjectId } from "mongodb"
+import { getUserFromToken } from "@/lib/auth"
 
+// GET - Obtener traducciones del usuario
+export async function GET(request: NextRequest) {
+  try {
+    // Verificar autenticación usando la función centralizada
+    const user = await getUserFromToken(request)
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado. Inicie sesión para ver su historial." }, { status: 401 })
+    }
+
+    const translationsCollection = await getTranslationsCollection()
+
+    const translations = await translationsCollection.find({ userId: user._id }).sort({ createdAt: -1 }).toArray()
+
+    // Convertir ObjectIds a strings para el frontend
+    const formattedTranslations = translations.map((translation) => ({
+      ...translation,
+      _id: translation._id.toString(),
+      userId: translation.userId.toString(),
+    }))
+
+    return NextResponse.json({ translations: formattedTranslations })
+  } catch (error) {
+    console.error("Error fetching translations:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+  }
+}
+
+// POST - Crear nueva traducción
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    // Verificar autenticación
+    const user = await getUserFromToken(request)
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado. Inicie sesión para guardar traducciones." }, { status: 401 })
     }
 
     const body = await request.json()
-    const { inputText, outputText, direction } = body
+    const { originalText, brailleText, translationType, language } = body
 
-    if (!inputText || !outputText || !direction) {
-      return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 })
+    // Validar datos requeridos
+    if (!originalText || !brailleText || !translationType) {
+      return NextResponse.json({ error: "Datos incompletos" }, { status: 400 })
     }
 
-    const translation = await saveTranslation({
-      userId: session.user.id,
-      inputText,
-      outputText,
-      direction,
-      timestamp: new Date(),
+    const translationsCollection = await getTranslationsCollection()
+
+    const newTranslation = {
+      userId: user._id,
+      originalText: originalText.trim(),
+      brailleText: brailleText.trim(),
+      translationType,
+      language: language || "es",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    const result = await translationsCollection.insertOne(newTranslation)
+
+    return NextResponse.json({
+      success: true,
+      message: "Traducción guardada exitosamente",
+      translationId: result.insertedId.toString(),
     })
-
-    return NextResponse.json(translation, { status: 201 })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Error al guardar traducción" }, { status: 500 })
+  } catch (error) {
+    console.error("Error saving translation:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
-    const translations = await getUserTranslations(session.user.id)
-
-    return NextResponse.json(translations)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Error al obtener traducciones" }, { status: 500 })
-  }
-}
-
+// DELETE - Eliminar traducción
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session || !session.user) {
+    // Verificar autenticación
+    const user = await getUserFromToken(request)
+    if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const deletedCount = await deleteAllUserTranslations(session.user.id)
+    const { searchParams } = new URL(request.url)
+    const translationId = searchParams.get("id")
 
-    return NextResponse.json({ deletedCount })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Error al eliminar traducciones" }, { status: 500 })
+    if (!translationId) {
+      return NextResponse.json({ error: "ID de traducción requerido" }, { status: 400 })
+    }
+
+    const translationsCollection = await getTranslationsCollection()
+
+    const result = await translationsCollection.deleteOne({
+      _id: new ObjectId(translationId),
+      userId: user._id,
+    })
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: "Traducción no encontrada" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, message: "Traducción eliminada exitosamente" })
+  } catch (error) {
+    console.error("Error deleting translation:", error)
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
