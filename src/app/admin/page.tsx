@@ -582,8 +582,8 @@ const loadStats = useCallback(async () => {
       {
         label: 'Traducciones por día',
         data: stats.translations.last7Days?.map(stat => stat.count) || [],
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        borderColor: 'red',
+        backgroundColor: 'rgba(28, 125, 38, 0.1)',
         tension: 0.4,
         fill: true,
       }
@@ -596,7 +596,7 @@ const loadStats = useCallback(async () => {
       {
         label: 'Sesiones de teclado',
         data: stats.keyboard.last7Days?.map(stat => stat.count) || [],
-        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+        backgroundColor: 'rgba(45, 85, 60, 0.8)',
         borderColor: '#22c55e',
         borderWidth: 1,
       }

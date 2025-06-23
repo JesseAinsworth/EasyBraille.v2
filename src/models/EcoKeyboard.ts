@@ -1,52 +1,22 @@
 import type { ObjectId } from "mongodb"
 
-export interface AiInteraction {
-  _id?: ObjectId
-  userId: ObjectId
-  query: string
-  response: string
-  interactionType: "translation" | "help" | "correction" | "suggestion"
-  metadata?: {
-    processingTime?: number
-    confidence?: number
-    model?: string
-  }
-  createdAt: Date
+// Modelo usado al guardar en MongoDB
+export interface EcoKeyboard {
+  _id: string | ObjectId // Puede venir como ObjectId o string
+  userId: string | ObjectId
+  brailleCode: string
+  character: string
+  actionType: "keyPress" | "delete" | "submit" | "other"
+  timestamp: Date
+  deviceId?: string
 }
 
-export interface CreateAiInteractionData {
+// Datos usados al crear una nueva acción (sin _id aún)
+export interface CreateEcoKeyboardData {
   userId: string
-  query: string
-  response: string
-  interactionType: "translation" | "help" | "correction" | "suggestion"
-  metadata?: {
-    processingTime?: number
-    confidence?: number
-    model?: string
-  }
-}
-
-export function validateAiInteractionData(data: CreateAiInteractionData): { isValid: boolean; errors: string[] } {
-  const errors: string[] = []
-
-  if (!data.userId) {
-    errors.push("El ID de usuario es requerido")
-  }
-
-  if (!data.query || data.query.trim().length === 0) {
-    errors.push("La consulta es requerida")
-  }
-
-  if (!data.response || data.response.trim().length === 0) {
-    errors.push("La respuesta es requerida")
-  }
-
-  if (!["translation", "help", "correction", "suggestion"].includes(data.interactionType)) {
-    errors.push("Tipo de interacción inválido")
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-  }
+  brailleCode: string
+  character: string
+  actionType: "keyPress" | "delete" | "submit" | "other"
+  timestamp: Date
+  deviceId?: string
 }

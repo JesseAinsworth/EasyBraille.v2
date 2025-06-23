@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const range = parseInt(url.searchParams.get('range') || '7') // por defecto 7 días
 
-  // Total de traducciones por tipo
+  // total de traducciones por tipo
   const byType = await collection.aggregate([
     {
       $group: {
