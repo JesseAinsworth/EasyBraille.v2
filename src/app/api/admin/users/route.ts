@@ -1,124 +1,75 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUsersCollection } from "@/lib/mongodb"
 import { getUserFromToken } from "@/lib/auth"
+import { getUsersCollection } from "@/lib/mongodb"
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("🔄 API: Verificando autenticación...")
-
     // Verificar que el usuario sea administrador
     const user = await getUserFromToken(request)
-
-    if (!user) {
-      console.log("❌ API: No se encontró usuario autenticado")
-      return NextResponse.json({ error: "No autorizado - Token inválido o expirado" }, { status: 401 })
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 })
     }
 
-    console.log("✅ API: Usuario autenticado:", { email: user.email, role: user.role })
+    console.log("🔍 Cargando usuarios desde la base de datos...")
 
-    if (user.role !== "admin") {
-      console.log("❌ API: Usuario no es administrador:", user.role)
-      return NextResponse.json({ error: "Acceso denegado - Se requieren permisos de administrador" }, { status: 403 })
-    }
+    // Obtener la colección de usuarios
+    const usersCollection = await getUsersCollection()
 
-    console.log("🔄 API: Cargando usuarios...")
+    // Obtener todos los usuarios
+    const users = await usersCollection.find({}).toArray()
 
-    try {
-      const usersCollection = await getUsersCollection()
-      console.log("✅ API: Colección de usuarios obtenida")
+    console.log(`✅ ${users.length} usuarios encontrados en la base de datos`)
 
-      // Obtener todos los usuarios (sin contraseñas)
-      const users = await usersCollection
-        .find({}, { projection: { password: 0 } })
-        .sort({ createdAt: -1 })
-        .toArray()
+    // Estadísticas de usuarios
+    const totalUsers = users.length
+    const activeUsers = users.filter((u) => u.isActive !== false).length
+    const adminUsers = users.filter((u) => u.role === "admin").length
+    const regularUsers = users.filter((u) => u.role !== "admin").length
 
-      console.log(`✅ API: ${users.length} usuarios encontrados`)
+    // Formatear usuarios para el frontend
+    const formattedUsers = users.map((user) => ({
+      _id: user._id.toString(),
+      name: user.name || "Sin nombre",
+      email: user.email || "Sin email",
+      role: user.role || "user",
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
+      isActive: user.isActive !== false,
+    }))
 
-      // Estadísticas de usuarios
-      const totalUsers = users.length
-      const activeUsers = users.filter((u) => u.isActive !== false).length
-      const adminUsers = users.filter((u) => u.role === "admin").length
-      const regularUsers = users.filter((u) => u.role === "user").length
+    console.log("📊 Estadísticas de usuarios:", {
+      total: totalUsers,
+      active: activeUsers,
+      admins: adminUsers,
+      regular: regularUsers,
+    })
 
-      // Usuarios registrados por mes (últimos 6 meses)
-      const sixMonthsAgo = new Date()
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+    return NextResponse.json({
+      users: formattedUsers,
+      stats: {
+        total: totalUsers,
+        active: activeUsers,
+        admins: adminUsers,
+        regular: regularUsers,
+      },
+      isMockData: false,
+    })
+  } catch (error) {
+    console.error("❌ Error fetching users:", error)
 
-      const usersByMonth = await usersCollection
-        .aggregate([
-          {
-            $match: {
-              createdAt: { $gte: sixMonthsAgo },
-            },
-          },
-          {
-            $group: {
-              _id: {
-                year: { $year: "$createdAt" },
-                month: { $month: "$createdAt" },
-              },
-              count: { $sum: 1 },
-            },
-          },
-          {
-            $sort: { "_id.year": 1, "_id.month": 1 },
-          },
-        ])
-        .toArray()
-
-      return NextResponse.json({
-        users: users.map((user) => ({
-          ...user,
-          _id: user._id.toString(),
-        })),
+    return NextResponse.json(
+      {
+        error: "Error al cargar usuarios",
+        details: error instanceof Error ? error.message : "Error desconocido",
+        users: [],
         stats: {
-          total: totalUsers,
-          active: activeUsers,
-          admins: adminUsers,
-          regular: regularUsers,
-          byMonth: usersByMonth,
-        },
-      })
-    } catch (dbError: any) {
-      console.error("❌ API Error de base de datos:", dbError.message)
-
-      // Si hay error de conexión a MongoDB, devolver datos de prueba
-      console.log("⚠️ API: Devolviendo datos de prueba")
-      const mockUsers = [
-        {
-          _id: "admin_id",
-          name: "Administrador",
-          email: "admin@example.com",
-          role: "admin",
-          createdAt: new Date().toISOString(),
-          isActive: true,
-        },
-        {
-          _id: "user_id",
-          name: "Usuario Demo",
-          email: "user@example.com",
-          role: "user",
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          isActive: true,
-        },
-      ]
-
-      return NextResponse.json({
-        users: mockUsers,
-        stats: {
-          total: 2,
-          active: 2,
-          admins: 1,
-          regular: 1,
-          byMonth: [],
+          total: 0,
+          active: 0,
+          admins: 0,
+          regular: 0,
         },
         isMockData: true,
-        error: dbError.message,
-      })
-    }
-  } catch (error: any) {
-    console.error("❌ API Error general:", error.message)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+      },
+      { status: 500 },
+    )
   }
 }

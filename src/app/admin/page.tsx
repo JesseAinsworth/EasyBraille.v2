@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
@@ -17,10 +16,7 @@ import {
   Save,
   X,
   BarChart3,
-  Keyboard,
   Brain,
-  LineChart,
-  PieChart,
   Download,
   TrendingUp,
   Activity,
@@ -33,7 +29,7 @@ import {
 } from "lucide-react"
 
 // Chart.js imports
-import { Line, Bar, Doughnut } from 'react-chartjs-2'
+import { Line, Doughnut } from "react-chartjs-2"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -45,20 +41,10 @@ import {
   Tooltip,
   Legend,
   Filler,
-} from 'chart.js'
+} from "chart.js"
 
 // Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Tooltip,
-  Legend,
-  Filler
-)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Filler)
 
 interface User {
   _id: string
@@ -77,7 +63,7 @@ interface FeedbackItem {
   createdAt: string
 }
 
-interface DayStat {
+interface MonthStat {
   date: string
   count: number
 }
@@ -93,19 +79,13 @@ interface AdminStats {
     total: number
     thisWeek: number
     byType: { spanish_to_braille: number; braille_to_spanish: number }
-    last7Days?: DayStat[]
-  }
-  keyboard: {
-    totalSessions: number
-    energySaved: number
-    co2Reduced: number
-    last7Days?: DayStat[]
+    last6Months?: MonthStat[]
   }
   ai: {
     totalInteractions: number
     avgAccuracy: number
     avgResponseTime: number
-    last7Days?: DayStat[]
+    last6Months?: MonthStat[]
   }
 }
 
@@ -115,23 +95,17 @@ export default function AdminPage() {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
   const [stats, setStats] = useState<AdminStats>({
     users: { total: 0, active: 0, admins: 0, regular: 0 },
-    translations: { 
-      total: 0, 
-      thisWeek: 0, 
+    translations: {
+      total: 0,
+      thisWeek: 0,
       byType: { spanish_to_braille: 0, braille_to_spanish: 0 },
-      last7Days: []
+      last6Months: [],
     },
-    keyboard: { 
-      totalSessions: 0, 
-      energySaved: 0, 
-      co2Reduced: 0,
-      last7Days: []
-    },
-    ai: { 
-      totalInteractions: 0, 
-      avgAccuracy: 0, 
+    ai: {
+      totalInteractions: 0,
+      avgAccuracy: 0,
       avgResponseTime: 0,
-      last7Days: []
+      last6Months: [],
     },
   })
   const [editingUser, setEditingUser] = useState<string | null>(null)
@@ -147,18 +121,28 @@ export default function AdminPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  // Función para generar datos de ejemplo para gráficas
-  const generateMockChartData = (baseCount: number = 0): DayStat[] => {
-    const days = []
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      days.push({
-        date: date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-        count: Math.max(0, baseCount + Math.floor(Math.random() * 10) - 5)
+  // Función para generar datos mensuales completos (últimos 6 meses)
+  const generateCompleteMonthlyData = (apiData: any[]): MonthStat[] => {
+    const months = []
+    const now = new Date()
+
+    // Generar los últimos 6 meses
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthName = date.toLocaleDateString("es-ES", { month: "short", year: "2-digit" })
+
+      // Buscar datos para este mes en la respuesta de la API
+      const monthData = apiData.find(
+        (item) => item._id.year === date.getFullYear() && item._id.month === date.getMonth() + 1,
+      )
+
+      months.push({
+        date: monthName,
+        count: monthData ? monthData.count : 0,
       })
     }
-    return days
+
+    return months
   }
 
   // Función para cargar datos con manejo de errores mejorado
@@ -211,13 +195,14 @@ export default function AdminPage() {
 
   // Función memoizada para cargar usuarios
   const loadUsers = useCallback(async () => {
-    console.log("📊 Cargando usuarios...")
+    console.log("👥 Cargando usuarios...")
     const result = await loadDataSafely("/api/admin/users")
 
-    if (result.success && result.data.users) {
+    if (result.success && result.data.users && !result.isMockData) {
       setUsers(result.data.users)
       console.log(`✅ ${result.data.users.length} usuarios cargados`)
 
+      // Solo generar feedback si hay usuarios reales
       if (result.data.users.length > 0) {
         setFeedback([
           {
@@ -244,85 +229,122 @@ export default function AdminPage() {
         ])
       }
 
-      return result.isMockData
+      return false // No es mock data
     } else {
-      console.warn("⚠️ No se pudieron cargar usuarios, usando datos vacíos")
+      console.warn("⚠️ No se pudieron cargar usuarios")
       setUsers([])
-      return true
+      setFeedback([])
+      return true // Es mock data
     }
   }, [loadDataSafely])
 
   // Función memoizada para cargar estadísticas
-const loadStats = useCallback(async () => {
-  console.log("📈 Cargando estadísticas...")
+  const loadStats = useCallback(async () => {
+    console.log("📈 Cargando estadísticas...")
 
-  const [usersResult, translationsResult, keyboardResult, aiResult, statsResult] = await Promise.all([
-    loadDataSafely("/api/admin/users"),
-    loadDataSafely("/api/admin/translations"),
-    loadDataSafely("/api/admin/keyboard-stats"),
-    loadDataSafely("/api/admin/ai-stats"),
-    loadDataSafely("/api/admin/stats"),
-  ])
+    // Usar la API unificada de stats
+    const statsResult = await loadDataSafely("/api/admin/stats")
 
-  const hasRealData = usersResult.success || translationsResult.success || keyboardResult.success || aiResult.success
-  const allMockData =
-    usersResult.isMockData && translationsResult.isMockData && keyboardResult.isMockData && aiResult.isMockData
+    if (statsResult.success && statsResult.data?.stats && !statsResult.isMockData) {
+      const statsData = statsResult.data.stats
 
-  // ✅ CORRECCIÓN: Manejar el formato real de tu JSON
-  let translationsLast7Days = [];
-  
-  if (statsResult.success && statsResult.data) {
-    // Si tu /api/admin/stats devuelve el JSON con totalTranslations y last7Days
-   if (statsResult.data.last7Days) {
-  translationsLast7Days = statsResult.data.last7Days.map((day: any) => ({
-    date: new Date(day.date).toLocaleDateString('es-ES', {
-      month: 'short',
-      day: 'numeric'
-    }),
-    count: day.count
-  }));
-}
-  } else {
-    // Fallback a datos generados
-    translationsLast7Days = generateMockChartData(Math.floor((translationsResult.data?.stats?.total || 0) / 7));
-  }
+      console.log("📊 Datos de estadísticas recibidos:", statsData)
 
-  setStats({
-    users: {
-      total: usersResult.data?.stats?.total || 0,
-      active: usersResult.data?.stats?.active || 0,
-      admins: usersResult.data?.stats?.admins || 0,
-      regular: usersResult.data?.stats?.regular || 0,
-    },
-    translations: {
-      // ✅ CORRECCIÓN: Usar los datos reales de tu JSON
-      total: statsResult.data?.totalTranslations || translationsResult.data?.stats?.total || 0,
-      thisWeek: Math.floor((statsResult.data?.totalTranslations || translationsResult.data?.stats?.total || 0) * 0.15),
-      byType: {
-        spanish_to_braille: statsResult.data?.translationsByType?.TEXT_TO_BRAILLE || 
-          translationsResult.data?.stats?.byType?.find((t: any) => t._id === "TEXT_TO_BRAILLE")?.count || 0,
-        braille_to_spanish: statsResult.data?.translationsByType?.BRAILLE_TO_TEXT || 
-          translationsResult.data?.stats?.byType?.find((t: any) => t._id === "BRAILLE_TO_TEXT")?.count || 0,
-      },
-      last7Days: translationsLast7Days,
-    },
-    keyboard: {
-      totalSessions: keyboardResult.data?.stats?.totalSessions || 0,
-      energySaved: keyboardResult.data?.stats?.totalEnergySaved || 0,
-      co2Reduced: keyboardResult.data?.stats?.totalCO2Reduced || 0,
-      last7Days: generateMockChartData(Math.floor((keyboardResult.data?.stats?.totalSessions || 0) / 7)),
-    },
-    ai: {
-      totalInteractions: aiResult.data?.stats?.totalInteractions || 0,
-      avgAccuracy: aiResult.data?.stats?.avgAccuracy || 0,
-      avgResponseTime: aiResult.data?.stats?.avgResponseTime || 0,
-      last7Days: generateMockChartData(Math.floor((aiResult.data?.stats?.totalInteractions || 0) / 7)),
-    },
-  })
+      // Procesar datos de traducciones
+      const translationsTotal = statsData.translations?.total || 0
+      let spanishToBraille = 0
+      let brailleToSpanish = 0
 
-  console.log("📊 Estadísticas cargadas:", { hasRealData, allMockData })
-  return allMockData
-}, [loadDataSafely])
+      // Procesar tipos de traducción
+      if (statsData.translations?.byType && Array.isArray(statsData.translations.byType)) {
+        const byTypeArray = statsData.translations.byType
+        spanishToBraille = byTypeArray.find((t: any) => t._id === "TEXT_TO_BRAILLE")?.count || 0
+        brailleToSpanish = byTypeArray.find((t: any) => t._id === "BRAILLE_TO_TEXT")?.count || 0
+      }
+
+      // Procesar datos mensuales de traducciones
+      let translationsLast6Months: MonthStat[] = []
+      if (statsData.translations?.last6Months && Array.isArray(statsData.translations.last6Months)) {
+        translationsLast6Months = generateCompleteMonthlyData(statsData.translations.last6Months)
+      }
+
+      // Procesar datos de IA
+      const aiInteractions = statsData.ai?.totalInteractions || 0
+      const aiAccuracy = statsData.ai?.avgAccuracy || 0
+      const aiResponseTime = statsData.ai?.avgResponseTime || 0
+
+      // Procesar datos mensuales de IA
+      let aiLast6Months: MonthStat[] = []
+      if (statsData.ai?.last6Months && Array.isArray(statsData.ai.last6Months)) {
+        aiLast6Months = generateCompleteMonthlyData(statsData.ai.last6Months)
+      }
+
+      // Procesar datos de usuarios
+      const usersTotal = statsData.users?.total || 0
+      const usersActive = statsData.users?.active || 0
+      const usersAdmins = statsData.users?.admins || 0
+      const usersRegular = statsData.users?.regular || 0
+
+      setStats({
+        users: {
+          total: usersTotal,
+          active: usersActive,
+          admins: usersAdmins,
+          regular: usersRegular,
+        },
+        translations: {
+          total: translationsTotal,
+          thisWeek: statsData.translations?.thisWeek || 0,
+          byType: {
+            spanish_to_braille: spanishToBraille,
+            braille_to_spanish: brailleToSpanish,
+          },
+          last6Months: translationsLast6Months,
+        },
+        ai: {
+          totalInteractions: aiInteractions,
+          avgAccuracy: aiAccuracy,
+          avgResponseTime: aiResponseTime,
+          last6Months: aiLast6Months,
+        },
+      })
+
+      console.log("✅ Estadísticas procesadas:", {
+        translationsTotal,
+        spanishToBraille,
+        brailleToSpanish,
+        aiInteractions,
+        usersTotal,
+        translationsLast6Months,
+        aiLast6Months,
+      })
+
+      setConnectionStatus("connected")
+      return false // No es mock data
+    } else {
+      console.warn("⚠️ No se pudieron cargar estadísticas reales")
+      setConnectionStatus("mock")
+
+      // Resetear a ceros si no hay datos
+      setStats({
+        users: { total: 0, active: 0, admins: 0, regular: 0 },
+        translations: {
+          total: 0,
+          thisWeek: 0,
+          byType: { spanish_to_braille: 0, braille_to_spanish: 0 },
+          last6Months: [],
+        },
+        ai: {
+          totalInteractions: 0,
+          avgAccuracy: 0,
+          avgResponseTime: 0,
+          last6Months: [],
+        },
+      })
+
+      return true // Es mock data (o sin datos)
+    }
+  }, [loadDataSafely])
 
   // Función memoizada para cargar todos los datos
   const loadAllData = useCallback(async () => {
@@ -332,13 +354,14 @@ const loadStats = useCallback(async () => {
     console.log("🚀 Iniciando carga de datos del panel...")
 
     try {
+      // Cargar usuarios y estadísticas en paralelo
       const [usersMockData, statsMockData] = await Promise.all([loadUsers(), loadStats()])
 
       const usingMockData = usersMockData || statsMockData
 
       if (usingMockData) {
         setConnectionStatus("mock")
-        console.log("⚠️ Usando datos de prueba")
+        console.log("⚠️ Usando datos de prueba o sin datos")
       } else {
         setConnectionStatus("connected")
         console.log("✅ Conectado a base de datos real")
@@ -402,11 +425,10 @@ const loadStats = useCallback(async () => {
   const handleAddUser = async () => {
     try {
       setIsLoadingData(true)
-
       const newUser = {
         name: "Nuevo Usuario",
         email: "nuevo@example.com",
-        password: "password123", // Contraseña temporal
+        password: "password123",
         role: "user",
       }
 
@@ -424,7 +446,6 @@ const loadStats = useCallback(async () => {
         throw new Error(result.error || "Error al crear usuario")
       }
 
-      // Añadir el usuario creado al estado
       setUsers((prev) => [
         ...prev,
         {
@@ -433,7 +454,6 @@ const loadStats = useCallback(async () => {
         },
       ])
 
-      // Iniciar edición del nuevo usuario
       setEditingUser(result.user._id)
       setEditName(result.user.name)
       setEditEmail(result.user.email)
@@ -458,7 +478,6 @@ const loadStats = useCallback(async () => {
   const handleDeleteUser = async (id: string) => {
     try {
       setIsLoadingData(true)
-
       const response = await fetch(`/api/admin/users/manage?id=${id}`, {
         method: "DELETE",
       })
@@ -470,7 +489,6 @@ const loadStats = useCallback(async () => {
       }
 
       setUsers((prev) => prev.filter((user) => user._id !== id))
-
       toast({
         title: "Usuario eliminado",
         description: "El usuario ha sido eliminado correctamente.",
@@ -497,7 +515,6 @@ const loadStats = useCallback(async () => {
   const handleSaveUser = async (id: string) => {
     try {
       setIsLoadingData(true)
-
       const response = await fetch("/api/admin/users/manage", {
         method: "PUT",
         headers: {
@@ -575,58 +592,45 @@ const loadStats = useCallback(async () => {
     router.push("/admin/diagnostico")
   }
 
-  // Configuraciones de gráficas
+  // Configuraciones de gráficas - Datos mensuales
   const translationsChartData = {
-    labels: stats.translations.last7Days?.map(stat => stat.date) || [],
+    labels: stats.translations.last6Months?.map((stat) => stat.date) || [],
     datasets: [
       {
-        label: 'Traducciones por día',
-        data: stats.translations.last7Days?.map(stat => stat.count) || [],
-        borderColor: 'red',
-        backgroundColor: 'rgba(28, 125, 38, 0.1)',
+        label: "Traducciones por mes",
+        data: stats.translations.last6Months?.map((stat) => stat.count) || [],
+        borderColor: "#3b82f6",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
         tension: 0.4,
         fill: true,
-      }
-    ]
-  }
-
-  const keyboardChartData = {
-    labels: stats.keyboard.last7Days?.map(stat => stat.date) || [],
-    datasets: [
-      {
-        label: 'Sesiones de teclado',
-        data: stats.keyboard.last7Days?.map(stat => stat.count) || [],
-        backgroundColor: 'rgba(45, 85, 60, 0.8)',
-        borderColor: '#22c55e',
-        borderWidth: 1,
-      }
-    ]
+      },
+    ],
   }
 
   const aiChartData = {
-    labels: stats.ai.last7Days?.map(stat => stat.date) || [],
+    labels: stats.ai.last6Months?.map((stat) => stat.date) || [],
     datasets: [
       {
-        label: 'Interacciones IA',
-        data: stats.ai.last7Days?.map(stat => stat.count) || [],
-        borderColor: '#8b5cf6',
-        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        label: "Interacciones IA por mes",
+        data: stats.ai.last6Months?.map((stat) => stat.count) || [],
+        borderColor: "#8b5cf6",
+        backgroundColor: "rgba(139, 92, 246, 0.1)",
         tension: 0.4,
         fill: true,
-      }
-    ]
+      },
+    ],
   }
 
   const translationTypesData = {
-    labels: ['Español → Braille', 'Braille → Español'],
+    labels: ["Español → Braille", "Braille → Español"],
     datasets: [
       {
         data: [stats.translations.byType.spanish_to_braille, stats.translations.byType.braille_to_spanish],
-        backgroundColor: ['#3b82f6', '#10b981'],
-        borderColor: ['#2563eb', '#059669'],
+        backgroundColor: ["#3b82f6", "#10b981"],
+        borderColor: ["#2563eb", "#059669"],
         borderWidth: 2,
-      }
-    ]
+      },
+    ],
   }
 
   const chartOptions = {
@@ -635,7 +639,7 @@ const loadStats = useCallback(async () => {
     plugins: {
       legend: {
         display: true,
-        position: 'top' as const,
+        position: "top" as const,
       },
     },
     scales: {
@@ -651,7 +655,7 @@ const loadStats = useCallback(async () => {
     plugins: {
       legend: {
         display: true,
-        position: 'bottom' as const,
+        position: "bottom" as const,
       },
     },
   }
@@ -686,7 +690,7 @@ const loadStats = useCallback(async () => {
             {connectionStatus === "mock" && (
               <div className="flex items-center gap-1 text-yellow-600">
                 <Database className="h-4 w-4" />
-                <span className="text-sm">Datos de prueba</span>
+                <span className="text-sm">Sin datos</span>
               </div>
             )}
             {connectionStatus === "disconnected" && (
@@ -719,9 +723,9 @@ const loadStats = useCallback(async () => {
           <div className="flex items-center">
             <AlertCircle className="h-5 w-5 text-blue-600 mr-2" />
             <div>
-              <p className="text-blue-800 font-medium">Usando datos de demostración</p>
+              <p className="text-blue-800 font-medium">Sin datos en la base de datos</p>
               <p className="text-blue-700 text-sm">
-                Las APIs están devolviendo datos de prueba. Configura MongoDB para ver datos reales.
+                No hay datos reales disponibles. Usa la aplicación para generar traducciones y estadísticas.
               </p>
               <div className="mt-2">
                 <Button variant="outline" size="sm" onClick={goToDiagnostico}>
@@ -752,8 +756,23 @@ const loadStats = useCallback(async () => {
         </div>
       )}
 
-      {/* Resumen de estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Debug Info */}
+      {showDebugInfo && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-md">
+          <div className="flex justify-between items-start">
+            <h3 className="font-medium mb-2">Información de depuración</h3>
+            <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="text-xs font-mono overflow-auto max-h-[300px] bg-gray-100 p-2 rounded">
+            <pre>{JSON.stringify(apiResponses, null, 2)}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de estadísticas - Solo 3 tarjetas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -766,7 +785,12 @@ const loadStats = useCallback(async () => {
               </div>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              <span className="text-green-500">+{Math.floor(stats.users.total * 0.1)}</span> nuevos este mes
+              {stats.users.total > 0 ? (
+                <span className="text-green-500">+{Math.floor(stats.users.total * 0.1)}</span>
+              ) : (
+                <span className="text-gray-500">Sin registros</span>
+              )}{" "}
+              nuevos este mes
             </div>
           </CardContent>
         </Card>
@@ -783,7 +807,12 @@ const loadStats = useCallback(async () => {
               </div>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              <span className="text-green-500">+{stats.translations.thisWeek}</span> esta semana
+              {stats.translations.total > 0 ? (
+                <span className="text-green-500">+{stats.translations.thisWeek}</span>
+              ) : (
+                <span className="text-gray-500">Sin registros</span>
+              )}{" "}
+              esta semana
             </div>
           </CardContent>
         </Card>
@@ -792,39 +821,27 @@ const loadStats = useCallback(async () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Energía Ahorrada</p>
-                <h3 className="text-2xl font-bold">{stats.keyboard.energySaved.toFixed(1)} kWh</h3>
-              </div>
-              <div className="p-2 bg-primary/10 rounded-full">
-                <Keyboard className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              <span className="text-green-500">-{stats.keyboard.co2Reduced.toFixed(1)} kg</span> de CO2
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Precisión IA</p>
-                <h3 className="text-2xl font-bold">{stats.ai.avgAccuracy.toFixed(1)}%</h3>
+                <p className="text-sm text-muted-foreground">Interacciones IA</p>
+                <h3 className="text-2xl font-bold">{stats.ai.totalInteractions}</h3>
               </div>
               <div className="p-2 bg-primary/10 rounded-full">
                 <Brain className="h-6 w-6 text-primary" />
               </div>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              <span className="text-green-500">{stats.ai.avgResponseTime.toFixed(1)}s</span> tiempo de respuesta
+              {stats.ai.avgAccuracy > 0 ? (
+                <span className="text-green-500">{stats.ai.avgAccuracy.toFixed(1)}%</span>
+              ) : (
+                <span className="text-gray-500">Sin datos</span>
+              )}{" "}
+              precisión promedio
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="users">
             <Users className="mr-2 h-4 w-4" />
             Usuarios ({users.length})
@@ -832,10 +849,6 @@ const loadStats = useCallback(async () => {
           <TabsTrigger value="translations">
             <BarChart3 className="mr-2 h-4 w-4" />
             Traducciones ({stats.translations.total})
-          </TabsTrigger>
-          <TabsTrigger value="keyboard">
-            <Keyboard className="mr-2 h-4 w-4" />
-            Teclado ({stats.keyboard.totalSessions})
           </TabsTrigger>
           <TabsTrigger value="ai">
             <Brain className="mr-2 h-4 w-4" />
@@ -946,7 +959,7 @@ const loadStats = useCallback(async () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive hover:text-destructive bg-transparent"
                                 onClick={() => handleDeleteUser(user._id)}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1023,79 +1036,49 @@ const loadStats = useCallback(async () => {
                   </p>
                 </div>
               ) : (
-                <div className="text-center py-8 bg-muted rounded-lg">
-                  <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    Gráficas detalladas disponibles después de instalar dependencias
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Ejecuta: <code className="bg-background px-2 py-1 rounded">npm install recharts</code>
-                  </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Traducciones por mes (últimos 6 meses)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        {stats.translations.last6Months && stats.translations.last6Months.length > 0 ? (
+                          <Line data={translationsChartData} options={chartOptions} />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            <div className="text-center">
+                              <BarChart3 className="h-12 w-12 mx-auto mb-2" />
+                              <p>Sin datos de tendencia mensual</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Distribución por tipo</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[300px]">
+                        {stats.translations.byType.spanish_to_braille > 0 ||
+                        stats.translations.byType.braille_to_spanish > 0 ? (
+                          <Doughnut data={translationTypesData} options={doughnutOptions} />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            <div className="text-center">
+                              <BarChart3 className="h-12 w-12 mx-auto mb-2" />
+                              <p>Sin datos de distribución</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="keyboard">
-          <Card>
-            <CardHeader>
-              <CardTitle>Estadísticas del Teclado Ecológico</CardTitle>
-              <CardDescription>Análisis del impacto ambiental del teclado Braille Arduino</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Sesiones totales</p>
-                        <h3 className="text-2xl font-bold">{stats.keyboard.totalSessions}</h3>
-                      </div>
-                      <div className="p-2 bg-green-100 rounded-full">
-                        <Keyboard className="h-6 w-6 text-green-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Energía ahorrada</p>
-                        <h3 className="text-2xl font-bold">{stats.keyboard.energySaved.toFixed(1)} kWh</h3>
-                      </div>
-                      <div className="p-2 bg-green-100 rounded-full">
-                        <LineChart className="h-6 w-6 text-green-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">CO2 reducido</p>
-                        <h3 className="text-2xl font-bold">{stats.keyboard.co2Reduced.toFixed(1)} kg</h3>
-                      </div>
-                      <div className="p-2 bg-green-100 rounded-full">
-                        <PieChart className="h-6 w-6 text-green-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="text-center py-8 bg-muted rounded-lg">
-                <Keyboard className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {stats.keyboard.totalSessions === 0
-                    ? "No hay datos del teclado ecológico"
-                    : "Gráficas de impacto ambiental disponibles después de instalar dependencias"}
-                </p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -1127,10 +1110,12 @@ const loadStats = useCallback(async () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Precisión promedio</p>
-                        <h3 className="text-2xl font-bold">{stats.ai.avgAccuracy.toFixed(1)}%</h3>
+                        <h3 className="text-2xl font-bold">
+                          {stats.ai.avgAccuracy > 0 ? `${stats.ai.avgAccuracy.toFixed(1)}%` : "N/A"}
+                        </h3>
                       </div>
                       <div className="p-2 bg-blue-100 rounded-full">
-                        <LineChart className="h-6 w-6 text-blue-600" />
+                        <BarChart3 className="h-6 w-6 text-blue-600" />
                       </div>
                     </div>
                   </CardContent>
@@ -1141,24 +1126,47 @@ const loadStats = useCallback(async () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">Tiempo de respuesta</p>
-                        <h3 className="text-2xl font-bold">{stats.ai.avgResponseTime.toFixed(1)}s</h3>
+                        <h3 className="text-2xl font-bold">
+                          {stats.ai.avgResponseTime > 0 ? `${stats.ai.avgResponseTime.toFixed(1)}s` : "N/A"}
+                        </h3>
                       </div>
                       <div className="p-2 bg-blue-100 rounded-full">
-                        <PieChart className="h-6 w-6 text-blue-600" />
+                        <Brain className="h-6 w-6 text-blue-600" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="text-center py-8 bg-muted rounded-lg">
-                <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {stats.ai.totalInteractions === 0
-                    ? "No hay interacciones de IA registradas"
-                    : "Análisis detallado de IA disponible después de instalar dependencias"}
-                </p>
-              </div>
+              {stats.ai.totalInteractions === 0 ? (
+                <div className="text-center py-8 bg-muted rounded-lg">
+                  <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay interacciones de IA registradas</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Las estadísticas aparecerán cuando se usen las funciones de IA
+                  </p>
+                </div>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Interacciones IA por mes (últimos 6 meses)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {stats.ai.last6Months && stats.ai.last6Months.length > 0 ? (
+                        <Line data={aiChartData} options={chartOptions} />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          <div className="text-center">
+                            <Brain className="h-12 w-12 mx-auto mb-2" />
+                            <p>Sin datos de tendencia mensual</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
