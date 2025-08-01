@@ -26,6 +26,7 @@ import {
   WifiOff,
   Bug,
   RefreshCw,
+  UserPlus,
 } from "lucide-react"
 
 // Chart.js imports
@@ -74,6 +75,7 @@ interface AdminStats {
     active: number
     admins: number
     regular: number
+    last6Months?: MonthStat[]
   }
   translations: {
     total: number
@@ -85,7 +87,7 @@ interface AdminStats {
     totalInteractions: number
     avgAccuracy: number
     avgResponseTime: number
-    last6Months?: MonthStat[]
+    successRate: number
   }
 }
 
@@ -94,7 +96,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([])
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
   const [stats, setStats] = useState<AdminStats>({
-    users: { total: 0, active: 0, admins: 0, regular: 0 },
+    users: { total: 0, active: 0, admins: 0, regular: 0, last6Months: [] },
     translations: {
       total: 0,
       thisWeek: 0,
@@ -105,7 +107,7 @@ export default function AdminPage() {
       totalInteractions: 0,
       avgAccuracy: 0,
       avgResponseTime: 0,
-      last6Months: [],
+      successRate: 0,
     },
   })
   const [editingUser, setEditingUser] = useState<string | null>(null)
@@ -268,15 +270,10 @@ export default function AdminPage() {
         translationsLast6Months = generateCompleteMonthlyData(statsData.translations.last6Months)
       }
 
-      // Procesar datos de IA
-      const aiInteractions = statsData.ai?.totalInteractions || 0
-      const aiAccuracy = statsData.ai?.avgAccuracy || 0
-      const aiResponseTime = statsData.ai?.avgResponseTime || 0
-
-      // Procesar datos mensuales de IA
-      let aiLast6Months: MonthStat[] = []
-      if (statsData.ai?.last6Months && Array.isArray(statsData.ai.last6Months)) {
-        aiLast6Months = generateCompleteMonthlyData(statsData.ai.last6Months)
+      // Procesar datos mensuales de usuarios
+      let usersLast6Months: MonthStat[] = []
+      if (statsData.users?.last6Months && Array.isArray(statsData.users.last6Months)) {
+        usersLast6Months = generateCompleteMonthlyData(statsData.users.last6Months)
       }
 
       // Procesar datos de usuarios
@@ -285,12 +282,19 @@ export default function AdminPage() {
       const usersAdmins = statsData.users?.admins || 0
       const usersRegular = statsData.users?.regular || 0
 
+      // Procesar datos de IA (simplificados)
+      const aiInteractions = statsData.ai?.totalInteractions || 0
+      const aiAccuracy = statsData.ai?.avgAccuracy || 0
+      const aiResponseTime = statsData.ai?.avgResponseTime || 0
+      const aiSuccessRate = statsData.ai?.successRate || 0
+
       setStats({
         users: {
           total: usersTotal,
           active: usersActive,
           admins: usersAdmins,
           regular: usersRegular,
+          last6Months: usersLast6Months,
         },
         translations: {
           total: translationsTotal,
@@ -305,7 +309,7 @@ export default function AdminPage() {
           totalInteractions: aiInteractions,
           avgAccuracy: aiAccuracy,
           avgResponseTime: aiResponseTime,
-          last6Months: aiLast6Months,
+          successRate: aiSuccessRate,
         },
       })
 
@@ -313,10 +317,10 @@ export default function AdminPage() {
         translationsTotal,
         spanishToBraille,
         brailleToSpanish,
-        aiInteractions,
         usersTotal,
+        aiInteractions,
         translationsLast6Months,
-        aiLast6Months,
+        usersLast6Months,
       })
 
       setConnectionStatus("connected")
@@ -327,7 +331,7 @@ export default function AdminPage() {
 
       // Resetear a ceros si no hay datos
       setStats({
-        users: { total: 0, active: 0, admins: 0, regular: 0 },
+        users: { total: 0, active: 0, admins: 0, regular: 0, last6Months: [] },
         translations: {
           total: 0,
           thisWeek: 0,
@@ -338,7 +342,7 @@ export default function AdminPage() {
           totalInteractions: 0,
           avgAccuracy: 0,
           avgResponseTime: 0,
-          last6Months: [],
+          successRate: 0,
         },
       })
 
@@ -607,14 +611,14 @@ export default function AdminPage() {
     ],
   }
 
-  const aiChartData = {
-    labels: stats.ai.last6Months?.map((stat) => stat.date) || [],
+  const usersChartData = {
+    labels: stats.users.last6Months?.map((stat) => stat.date) || [],
     datasets: [
       {
-        label: "Interacciones IA por mes",
-        data: stats.ai.last6Months?.map((stat) => stat.count) || [],
-        borderColor: "#8b5cf6",
-        backgroundColor: "rgba(139, 92, 246, 0.1)",
+        label: "Nuevos usuarios por mes",
+        data: stats.users.last6Months?.map((stat) => stat.count) || [],
+        borderColor: "#10b981",
+        backgroundColor: "rgba(16, 185, 129, 0.1)",
         tension: 0.4,
         fill: true,
       },
@@ -771,8 +775,8 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Resumen de estadísticas - Solo 3 tarjetas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Resumen de estadísticas - 4 tarjetas principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -821,20 +825,46 @@ export default function AdminPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Interacciones IA</p>
-                <h3 className="text-2xl font-bold">{stats.ai.totalInteractions}</h3>
+                <p className="text-sm text-muted-foreground">Precisión IA</p>
+                <h3 className="text-2xl font-bold">
+                  {stats.ai.avgAccuracy > 0 ? `${stats.ai.avgAccuracy.toFixed(1)}%` : "N/A"}
+                </h3>
               </div>
               <div className="p-2 bg-primary/10 rounded-full">
                 <Brain className="h-6 w-6 text-primary" />
               </div>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
-              {stats.ai.avgAccuracy > 0 ? (
-                <span className="text-green-500">{stats.ai.avgAccuracy.toFixed(1)}%</span>
+              {stats.ai.successRate > 0 ? (
+                <span className="text-green-500">{stats.ai.successRate.toFixed(1)}%</span>
               ) : (
                 <span className="text-gray-500">Sin datos</span>
               )}{" "}
-              precisión promedio
+              tasa de éxito
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Tiempo Respuesta</p>
+                <h3 className="text-2xl font-bold">
+                  {stats.ai.avgResponseTime > 0 ? `${stats.ai.avgResponseTime.toFixed(1)}s` : "N/A"}
+                </h3>
+              </div>
+              <div className="p-2 bg-primary/10 rounded-full">
+                <Activity className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {stats.ai.totalInteractions > 0 ? (
+                <span className="text-green-500">{stats.ai.totalInteractions}</span>
+              ) : (
+                <span className="text-gray-500">Sin datos</span>
+              )}{" "}
+              interacciones
             </div>
           </CardContent>
         </Card>
@@ -889,86 +919,110 @@ export default function AdminPage() {
                   </p>
                 </div>
               ) : (
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-5 p-4 font-medium border-b bg-muted/50">
-                    <div>Nombre</div>
-                    <div>Email</div>
-                    <div>Rol</div>
-                    <div>Fecha de registro</div>
-                    <div className="text-right">Acciones</div>
-                  </div>
-                  <div className="divide-y">
-                    {users.map((user) => (
-                      <div key={user._id} className="grid grid-cols-5 p-4 items-center hover:bg-muted/30">
-                        {editingUser === user._id ? (
-                          <>
-                            <div>
-                              <Input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                className="max-w-[200px]"
-                              />
-                            </div>
-                            <div>
-                              <Input
-                                value={editEmail}
-                                onChange={(e) => setEditEmail(e.target.value)}
-                                className="max-w-[200px]"
-                              />
-                            </div>
-                            <div>
-                              <select
-                                value={editRole}
-                                onChange={(e) => setEditRole(e.target.value)}
-                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                              >
-                                <option value="user">Usuario</option>
-                                <option value="admin">Administrador</option>
-                              </select>
-                            </div>
-                            <div>{formatDate(user.createdAt)}</div>
-                            <div className="flex justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={() => handleSaveUser(user._id)}>
-                                <Save className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setEditingUser(null)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </>
+                <div className="space-y-4">
+                  {/* Gráfica de crecimiento de usuarios */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Crecimiento de usuarios (últimos 6 meses)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[200px]">
+                        {stats.users.last6Months && stats.users.last6Months.length > 0 ? (
+                          <Line data={usersChartData} options={chartOptions} />
                         ) : (
-                          <>
-                            <div className="font-medium">{user.name}</div>
-                            <div className="text-muted-foreground">{user.email}</div>
-                            <div>
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  user.role === "admin"
-                                    ? "bg-primary/20 text-primary"
-                                    : "bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                {user.role === "admin" ? "Administrador" : "Usuario"}
-                              </span>
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            <div className="text-center">
+                              <UserPlus className="h-12 w-12 mx-auto mb-2" />
+                              <p>Sin datos de crecimiento</p>
                             </div>
-                            <div className="text-muted-foreground">{formatDate(user.createdAt)}</div>
-                            <div className="flex justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive hover:text-destructive bg-transparent"
-                                onClick={() => handleDeleteUser(user._id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </>
+                          </div>
                         )}
                       </div>
-                    ))}
+                    </CardContent>
+                  </Card>
+
+                  {/* Tabla de usuarios */}
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-5 p-4 font-medium border-b bg-muted/50">
+                      <div>Nombre</div>
+                      <div>Email</div>
+                      <div>Rol</div>
+                      <div>Fecha de registro</div>
+                      <div className="text-right">Acciones</div>
+                    </div>
+                    <div className="divide-y">
+                      {users.map((user) => (
+                        <div key={user._id} className="grid grid-cols-5 p-4 items-center hover:bg-muted/30">
+                          {editingUser === user._id ? (
+                            <>
+                              <div>
+                                <Input
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="max-w-[200px]"
+                                />
+                              </div>
+                              <div>
+                                <Input
+                                  value={editEmail}
+                                  onChange={(e) => setEditEmail(e.target.value)}
+                                  className="max-w-[200px]"
+                                />
+                              </div>
+                              <div>
+                                <select
+                                  value={editRole}
+                                  onChange={(e) => setEditRole(e.target.value)}
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                >
+                                  <option value="user">Usuario</option>
+                                  <option value="admin">Administrador</option>
+                                </select>
+                              </div>
+                              <div>{formatDate(user.createdAt)}</div>
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleSaveUser(user._id)}>
+                                  <Save className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setEditingUser(null)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-medium">{user.name}</div>
+                              <div className="text-muted-foreground">{user.email}</div>
+                              <div>
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    user.role === "admin"
+                                      ? "bg-primary/20 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  {user.role === "admin" ? "Administrador" : "Usuario"}
+                                </span>
+                              </div>
+                              <div className="text-muted-foreground">{formatDate(user.createdAt)}</div>
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEditUser(user)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-destructive hover:text-destructive bg-transparent"
+                                  onClick={() => handleDeleteUser(user._id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1087,10 +1141,10 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>Estadísticas de IA</CardTitle>
-              <CardDescription>Análisis del rendimiento de los modelos de inteligencia artificial</CardDescription>
+              <CardDescription>Rendimiento del sistema de traducción con inteligencia artificial</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -1114,8 +1168,8 @@ export default function AdminPage() {
                           {stats.ai.avgAccuracy > 0 ? `${stats.ai.avgAccuracy.toFixed(1)}%` : "N/A"}
                         </h3>
                       </div>
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <BarChart3 className="h-6 w-6 text-blue-600" />
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <TrendingUp className="h-6 w-6 text-green-600" />
                       </div>
                     </div>
                   </CardContent>
@@ -1130,8 +1184,24 @@ export default function AdminPage() {
                           {stats.ai.avgResponseTime > 0 ? `${stats.ai.avgResponseTime.toFixed(1)}s` : "N/A"}
                         </h3>
                       </div>
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <Brain className="h-6 w-6 text-blue-600" />
+                      <div className="p-2 bg-purple-100 rounded-full">
+                        <Activity className="h-6 w-6 text-purple-600" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Tasa de éxito</p>
+                        <h3 className="text-2xl font-bold">
+                          {stats.ai.successRate > 0 ? `${stats.ai.successRate.toFixed(1)}%` : "N/A"}
+                        </h3>
+                      </div>
+                      <div className="p-2 bg-orange-100 rounded-full">
+                        <BarChart3 className="h-6 w-6 text-orange-600" />
                       </div>
                     </div>
                   </CardContent>
@@ -1143,29 +1213,57 @@ export default function AdminPage() {
                   <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">No hay interacciones de IA registradas</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Las estadísticas aparecerán cuando se usen las funciones de IA
+                    Las estadísticas aparecerán cuando se realicen traducciones
                   </p>
                 </div>
               ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Interacciones IA por mes (últimos 6 meses)</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[300px]">
-                      {stats.ai.last6Months && stats.ai.last6Months.length > 0 ? (
-                        <Line data={aiChartData} options={chartOptions} />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">
-                          <div className="text-center">
-                            <Brain className="h-12 w-12 mx-auto mb-2" />
-                            <p>Sin datos de tendencia mensual</p>
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Rendimiento del Sistema de IA</CardTitle>
+                      <CardDescription>Métricas basadas en las traducciones realizadas por el sistema</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Precisión de traducción</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-32 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-green-600 h-2 rounded-full"
+                                style={{ width: `${stats.ai.avgAccuracy}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium">{stats.ai.avgAccuracy.toFixed(1)}%</span>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Tasa de éxito</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-32 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-600 h-2 rounde-full"
+                                style={{ width: `${stats.ai.successRate}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm font-medium">{stats.ai.successRate.toFixed(1)}%</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Tiempo de respuesta promedio</span>
+                          <span className="text-sm font-medium">{stats.ai.avgResponseTime.toFixed(1)} segundos</span>
+                        </div>
+
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium">Total de interacciones</span>
+                          <span className="text-sm font-medium">{stats.ai.totalInteractions.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1175,34 +1273,40 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle>Feedback de Usuarios</CardTitle>
-              <CardDescription>Revisa los comentarios y sugerencias de los usuarios</CardDescription>
+              <CardDescription>Comentarios y sugerencias de los usuarios de la plataforma</CardDescription>
             </CardHeader>
             <CardContent>
-              {feedback.length > 0 ? (
+              {feedback.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay feedback disponible</p>
+                  <p className="text-sm text-muted-foreground mt-2">Los comentarios de los usuarios aparecerán aquí</p>
+                </div>
+              ) : (
                 <div className="space-y-4">
                   {feedback.map((item) => (
                     <Card key={item._id}>
-                      <CardHeader className="pb-2">
+                      <CardContent className="p-4">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-base">{item.userName}</CardTitle>
-                            <CardDescription>{formatDate(item.createdAt)}</CardDescription>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-medium">{item.userName}</span>
+                              <span className="text-sm text-muted-foreground">{formatDate(item.createdAt)}</span>
+                            </div>
+                            <p className="text-sm">{item.message}</p>
                           </div>
-                          <Button size="sm" variant="ghost" onClick={() => handleDeleteFeedback(item._id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive hover:text-destructive bg-transparent"
+                            onClick={() => handleDeleteFeedback(item._id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm">{item.message}</p>
                       </CardContent>
                     </Card>
                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <History className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No hay feedback de usuarios</p>
                 </div>
               )}
             </CardContent>
@@ -1210,11 +1314,11 @@ export default function AdminPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Botón flotante para mostrar/ocultar debug info */}
-      <div className="fixed bottom-4 right-4">
-        <Button variant="outline" size="sm" onClick={toggleDebugInfo} className="bg-white shadow-md">
-          <Bug className="h-4 w-4 mr-2" />
-          {showDebugInfo ? "Ocultar debug" : "Mostrar debug"}
+      {/* Debug button */}
+      <div className="mt-6 text-center">
+        <Button variant="ghost" size="sm" onClick={toggleDebugInfo}>
+          <Bug className="mr-2 h-4 w-4" />
+          {showDebugInfo ? "Ocultar" : "Mostrar"} información de depuración
         </Button>
       </div>
     </div>
